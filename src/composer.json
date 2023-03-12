@@ -9,7 +9,7 @@
             "email": "phuocminh164@gmail.com"
         }
     ],
-    "minimum-stability": "stable",
+    "minimum-stability": "dev",
     "autoload": {
         "psr-4": {
             "Minh164\\EloNest\\": "src/"
