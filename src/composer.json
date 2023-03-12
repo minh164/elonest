@@ -2,6 +2,7 @@
     "name": "minh164/elonest",
     "description": "Nested set model for Eloquent in Laravel package.",
     "type": "project",
+    "license": "MIT",
     "authors": [
         {
             "name": "MinhMai",
