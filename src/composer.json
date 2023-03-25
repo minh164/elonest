@@ -12,7 +12,7 @@
     "minimum-stability": "dev",
     "autoload": {
         "psr-4": {
-            "Minh164\\EloNest\\": "src/"
+            "Minh164\\EloNest\\": "src"
         }
     },
     "require": {}
