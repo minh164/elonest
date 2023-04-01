@@ -90,6 +90,10 @@ In `NestableModel` has implemented some relations for your Model use it:
 
 ![img_9.png](images/img_9.png)
 
+We can use both `with` and `withNodes`, but `with` only get relations for parent nodes not for nested children:
+
+![img.png](images/img11.png)
+
 And yeah! we also can create a **custom node relation** by extends and override some methods in abstract `Minh164\EloNest\Relations\NodeRelation` class:
 
 ![img_10.png](images/img_10.png)
