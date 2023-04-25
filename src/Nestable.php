@@ -3,7 +3,7 @@
 namespace Minh164\EloNest;
 
 /**
- *
+ * Nestable interface.
  */
 interface Nestable
 {
