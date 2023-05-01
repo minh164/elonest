@@ -31,6 +31,13 @@ Extend `Minh164\EloNest\NestableModel` class for the model we need apply nested 
 
 ![img_1.png](images/img_1.png)
 
+Next, you make a migration to create some necessary columns for table, add these lines into new created migration file: 
+
+    $table->bigInteger('lft')->index();
+    $table->bigInteger('rgt')->index();
+    $table->unsignedMediumInteger('depth')->default(0);
+    $table->unsignedMediumInteger('parent_id')->default(0)->index();
+    $table->unsignedMediumInteger('original_number')->comment("Identifier number to determine folders belong together")->index();
 
 ### **CRUD methods:**
 
