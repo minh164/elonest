@@ -8,7 +8,7 @@ namespace Minh164\EloNest;
 interface Nestable
 {
     /**
-     * Get the instance as nested array with multiple dept.
+     * Get the instance as nested array with multiple depths.
      *
      * @param string $mainKey Key of parent item.
      * @param string $nestedKey Key which child item will base on to be nested.
