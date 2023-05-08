@@ -7,8 +7,6 @@ use Illuminate\Database\Eloquent\Builder;
 
 class PreviousSiblingRelation extends NodeRelation
 {
-    public const RELATION_KEY = 'prevSibling';
-
     public function execute(): mixed
     {
         return $this->getQuery($this->model->newQuery())->first();

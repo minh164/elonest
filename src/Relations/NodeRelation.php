@@ -13,7 +13,6 @@ use Exception;
  */
 abstract class NodeRelation
 {
-    public const RELATION_KEY = 'items';
     /**
      * Node model.
      */
@@ -23,6 +22,11 @@ abstract class NodeRelation
      * Determines process will be recursive to get relation.
      */
     public bool $isNested = false;
+
+    /**
+     * Determines Has one or Has many records in relation.
+     */
+    protected bool $hasMany = false;
 
 //    /**
 //     * Relation query.
@@ -68,4 +72,12 @@ abstract class NodeRelation
      * @return MappingInfo
      */
     abstract public function getMapping(): MappingInfo;
+
+    /**
+     * @return bool
+     */
+    public function hasMany(): bool
+    {
+        return $this->hasMany;
+    }
 }

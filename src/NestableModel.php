@@ -72,22 +72,32 @@ abstract class NestableModel extends Model
      */
     public function __get($key)
     {
-        $value = parent::__get($key);
-
-        if (!$value) {
-            if (!method_exists(static::class, $key)) {
-                return null;
+        // Check to return node relation.
+        if (method_exists(static::class, $key) && $this->$key() instanceof NodeRelation) {
+            // If node relation has been loaded, it will be returned instead of re-query to get again.
+            if ($this->nodeRelationLoaded($key)) {
+                return $this->nodeRelations[$key];
             }
 
-            // Check to return node relation.
-            if ($this->$key() instanceof NodeRelation) {
-                /* @var NodeRelation $query */
-                $query = $this->$key();
-                return $query->execute();
-            }
+            /* @var NodeRelation $query */
+            $query = $this->$key();
+
+            return $query->execute();
         }
 
-        return $value;
+        return parent::__get($key);
+    }
+
+    /**
+     * Determines relation has been loaded.
+     *
+     * @param string $key Relation key to check
+     *
+     * @return bool
+     */
+    public function nodeRelationLoaded(string $key): bool
+    {
+        return array_key_exists($key, $this->nodeRelations);
     }
 
     /**
@@ -107,7 +117,15 @@ abstract class NestableModel extends Model
                 if (static::$snakeAttributes) {
                     $key = Str::snake($key);
                 }
-                $nodesData[$key] = $nodeRelation instanceof Arrayable ? array_values($nodeRelation->toArray()) : null;
+
+                $nodesData[$key] = null;
+
+                if ($nodeRelation instanceof NestedCollection) {
+                    $nodesData[$key] = array_values($nodeRelation->toArray());
+                } elseif ($nodeRelation instanceof NestableModel) {
+                    $nodesData[$key] = $nodeRelation->toArray();
+                }
+
             }
         }
 

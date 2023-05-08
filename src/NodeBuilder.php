@@ -54,16 +54,50 @@ class NodeBuilder extends Builder
     }
 
     /**
-     * Get nodes with nested children.
+     * Get nodes with nested relations.
      *
-     * @return Collection
+     * @return NestedCollection
      *
      * @throws Exception
      */
-    public function getNodes(): Collection
+    public function getNodes(): NestedCollection
     {
+        /** @var NestedCollection $mainNodes */
         $mainNodes = $this->get();
 
+        return $this->findAndSetNodeRelations($mainNodes);
+    }
+
+    /**
+     * First node with nested relations.
+     *
+     * @return NestableModel|null
+     *
+     * @throws Exception
+     */
+    public function firstNode(): ?NestableModel
+    {
+        $node = $this->first();
+
+        if ($node) {
+            $nodesWithRelations = $this->findAndSetNodeRelations(new NestedCollection([$node]));
+            $node = $nodesWithRelations->first();
+        }
+
+        return $node;
+    }
+
+    /**
+     * Find and set relations for main nodes.
+     *
+     * @param NestedCollection $mainNodes Node collection which set relations
+     *
+     * @return NestedCollection
+     *
+     * @throws Exception
+     */
+    protected function findAndSetNodeRelations(NestedCollection $mainNodes): NestedCollection
+    {
         if ($this->hasNodeRelations()) {
             foreach ($this->withNodes as $relation) {
                 // Check relation is existed in model.
@@ -85,6 +119,7 @@ class NodeBuilder extends Builder
                     $mainNodes,
                     $relationNodes,
                     $nodeRelation,
+                    $relation
                 );
             }
         }
@@ -127,6 +162,7 @@ class NodeBuilder extends Builder
      * @param Collection $parentNodes Parent nodes collection which will be returned at root list
      * @param Collection $allChildNodes All child nodes of parent nodes collection
      * @param NodeRelation $nodeRelation Node relation instance
+     * @param string $relationKey Key to set relation
      *
      * @return Collection
      *
@@ -136,11 +172,11 @@ class NodeBuilder extends Builder
         Collection $parentNodes,
         Collection $allChildNodes,
         NodeRelation $nodeRelation,
+        string $relationKey
     ): Collection {
         $relations = [];
 
         $mapping = $nodeRelation->getMapping();
-        $relationKey = $nodeRelation::RELATION_KEY;
 
         /* @var NestableModel $node */
         foreach ($parentNodes as $node) {
@@ -168,10 +204,10 @@ class NodeBuilder extends Builder
 
             // Recursive processing if isNested turn ON.
             if ($childNodes->count() && $nodeRelation->isNested) {
-                $childNodes = $this->setChildrenToParents($childNodes, $allChildNodes, $nodeRelation);
+                $childNodes = $this->setChildrenToParents($childNodes, $allChildNodes, $nodeRelation, $relationKey);
             }
 
-            $relations[$relationKey] = $childNodes;
+            $relations[$relationKey] = $nodeRelation->hasMany() ? $childNodes : $childNodes->first();
             $node->setNodeRelations($relations);
         }
 

@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class NestedChildrenRelation extends NodeRelation
 {
-    public const RELATION_KEY = 'children';
-
     public bool $isNested = true;
+
+    protected bool $hasMany = true;
 
     public function execute(): mixed
     {

@@ -13,6 +13,18 @@ class NestedCollection extends Collection implements Nestable
     /**
      * @inheritdoc
      *
+     * Arrange same level to nested levels for multiple items.
+     * Ex:
+     * Input: [A, B.1, B, A.1, B.2, C, B.2.1]
+     * Output: [
+     *      [0 => A, Children => [0 => A.1]],
+     *      [1 => B, Children => [
+     *          [0 => B.1],
+     *          [1 => B.2, Children => [0 => B.2.1]]
+     *      ],
+     *      [2 => C, Children => [],
+     * ]
+     *
      * @param string $mainKey
      * @param string $nestedKey
      * @param string $childrenKey
@@ -26,10 +38,10 @@ class NestedCollection extends Collection implements Nestable
         $minParentValue = $this->min($nestedKey);
 
         // Get all min parent items.
-        $minParent = $this->where($nestedKey, '=', $minParentValue);
+        $minParents = $this->where($nestedKey, '=', $minParentValue);
 
         // Recursion to set children for each item.
-        return $this->getNestedItems($minParent->toArray(), $mainKey, $nestedKey, $childrenKey);
+        return $this->getNestedItems($minParents->toArray(), $mainKey, $nestedKey, $childrenKey);
     }
 
     /**
