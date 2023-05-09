@@ -103,6 +103,7 @@ abstract class NestableModel extends Model
     /**
      * Convert the model instance to an array.
      *
+     *
      * @inheritdoc
      *
      * @return array
