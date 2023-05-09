@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 /**
  * Layer manipulate nested set model.
  *
- * @property-read NestedCollection $nodeChildren
+ * @property-read NestableModel[]|NestedCollection $nodeChildren
  * @property-read NestableModel $prevSibling Previous sibling
  * @property-read NestableModel $nextSibling Next sibling
  */
@@ -98,6 +98,48 @@ abstract class NestableModel extends Model
     public function nodeRelationLoaded(string $key): bool
     {
         return array_key_exists($key, $this->nodeRelations);
+    }
+
+    /**
+     * Load node relations.
+     *
+     * @param string|array $relationKeys Relation keys
+     *
+     * @return $this
+     *
+     * @throws \Exception
+     */
+    public function loadNodeRelations(mixed $relationKeys): static
+    {
+        $newQuery = $this->newQuery()->withNodes($relationKeys);
+
+        $newQuery->eagerLoadNodeRelations(new NestedCollection([$this]));
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     *
+     * Reload the current model instance with fresh attributes from the database and reload node relations.
+     *
+     * @return $this
+     * @throws \Exception
+     */
+    public function refresh(): static
+    {
+        parent::refresh();
+
+        // Reload node relations.
+        foreach ($this->nodeRelations as $relationKey => $value) {
+            if (!$this->nodeRelationLoaded($relationKey)) {
+                continue;
+            }
+
+            $this->loadNodeRelations($relationKey);
+        }
+
+        return $this;
     }
 
     /**

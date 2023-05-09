@@ -65,7 +65,7 @@ class NodeBuilder extends Builder
         /** @var NestedCollection $mainNodes */
         $mainNodes = $this->get();
 
-        return $this->findAndSetNodeRelations($mainNodes);
+        return $this->eagerLoadNodeRelations($mainNodes);
     }
 
     /**
@@ -80,7 +80,7 @@ class NodeBuilder extends Builder
         $node = $this->first();
 
         if ($node) {
-            $nodesWithRelations = $this->findAndSetNodeRelations(new NestedCollection([$node]));
+            $nodesWithRelations = $this->eagerLoadNodeRelations(new NestedCollection([$node]));
             $node = $nodesWithRelations->first();
         }
 
@@ -88,7 +88,7 @@ class NodeBuilder extends Builder
     }
 
     /**
-     * Find and set relations for main nodes.
+     * Find and set relations for main node models.
      *
      * @param NestedCollection $mainNodes Node collection which set relations
      *
@@ -96,7 +96,7 @@ class NodeBuilder extends Builder
      *
      * @throws Exception
      */
-    protected function findAndSetNodeRelations(NestedCollection $mainNodes): NestedCollection
+    public function eagerLoadNodeRelations(NestedCollection $mainNodes): NestedCollection
     {
         if ($this->hasNodeRelations()) {
             foreach ($this->withNodes as $relation) {
