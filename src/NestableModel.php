@@ -163,8 +163,10 @@ abstract class NestableModel extends Model
                 $nodesData[$key] = null;
 
                 if ($nodeRelation instanceof NestedCollection) {
+                    // Recursive processing for each item in collection.
                     $nodesData[$key] = array_values($nodeRelation->toArray());
                 } elseif ($nodeRelation instanceof NestableModel) {
+                    // Recursive processing for one item.
                     $nodesData[$key] = $nodeRelation->toArray();
                 }
 
