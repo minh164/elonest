@@ -2,11 +2,12 @@
 
 namespace Minh164\EloNest;
 
-use Minh164\EloNest\Relations\NodeRelation;
+use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Exception;
 use Illuminate\Support\Facades\DB;
+use Minh164\EloNest\Collections\ElonestCollection;
+use Minh164\EloNest\Relations\NodeRelation;
 
 /**
  * Query builder with node model.
@@ -56,13 +57,13 @@ class NodeBuilder extends Builder
     /**
      * Get nodes with nested relations.
      *
-     * @return NestedCollection
+     * @return ElonestCollection
      *
      * @throws Exception
      */
-    public function getNodes(): NestedCollection
+    public function getNodes(): ElonestCollection
     {
-        /** @var NestedCollection $mainNodes */
+        /** @var ElonestCollection $mainNodes */
         $mainNodes = $this->get();
 
         return $this->eagerLoadNodeRelations($mainNodes);
@@ -80,7 +81,7 @@ class NodeBuilder extends Builder
         $node = $this->first();
 
         if ($node) {
-            $nodesWithRelations = $this->eagerLoadNodeRelations(new NestedCollection([$node]));
+            $nodesWithRelations = $this->eagerLoadNodeRelations(new ElonestCollection([$node]));
             $node = $nodesWithRelations->first();
         }
 
@@ -90,13 +91,13 @@ class NodeBuilder extends Builder
     /**
      * Find and set relations for main node models.
      *
-     * @param NestedCollection $mainNodes Node collection which set relations
+     * @param ElonestCollection $mainNodes Node collection which set relations
      *
-     * @return NestedCollection
+     * @return ElonestCollection
      *
      * @throws Exception
      */
-    public function eagerLoadNodeRelations(NestedCollection $mainNodes): NestedCollection
+    public function eagerLoadNodeRelations(ElonestCollection $mainNodes): ElonestCollection
     {
         if ($this->hasNodeRelations()) {
             foreach ($this->withNodes as $relation) {

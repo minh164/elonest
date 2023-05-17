@@ -2,20 +2,20 @@
 
 namespace Minh164\EloNest;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+use Minh164\EloNest\Collections\ElonestCollection;
 use Minh164\EloNest\Relations\NestedChildrenRelation;
 use Minh164\EloNest\Relations\NextSiblingRelation;
 use Minh164\EloNest\Relations\NodeRelation;
 use Minh164\EloNest\Relations\PreviousSiblingRelation;
 use Minh164\EloNest\Traits\NestableVariablesTrait;
-use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 
 /**
  * Layer manipulate nested set model.
  *
- * @property-read NestableModel[]|NestedCollection $nodeChildren
+ * @property-read NestableModel[]|ElonestCollection $nodeChildren
  * @property-read NestableModel $prevSibling Previous sibling
  * @property-read NestableModel $nextSibling Next sibling
  */
@@ -53,15 +53,15 @@ abstract class NestableModel extends Model
     }
 
     /**
-     * Get nested collection.
+     * Get nested set model collection.
      *
      * @param array $models
      *
-     * @return NestedCollection
+     * @return ElonestCollection
      */
-    public function newCollection(array $models = []): NestedCollection
+    public function newCollection(array $models = []): ElonestCollection
     {
-        return new NestedCollection($models);
+        return new ElonestCollection($models);
     }
 
     /**
@@ -113,7 +113,7 @@ abstract class NestableModel extends Model
     {
         $newQuery = $this->newQuery()->withNodes($relationKeys);
 
-        $newQuery->eagerLoadNodeRelations(new NestedCollection([$this]));
+        $newQuery->eagerLoadNodeRelations(new ElonestCollection([$this]));
 
         return $this;
     }
@@ -162,7 +162,7 @@ abstract class NestableModel extends Model
 
                 $nodesData[$key] = null;
 
-                if ($nodeRelation instanceof NestedCollection) {
+                if ($nodeRelation instanceof ElonestCollection) {
                     // Recursive processing for each item in collection.
                     $nodesData[$key] = array_values($nodeRelation->toArray());
                 } elseif ($nodeRelation instanceof NestableModel) {
