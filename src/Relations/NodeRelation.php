@@ -3,13 +3,13 @@
 namespace Minh164\EloNest\Relations;
 
 use Minh164\EloNest\NestableModel;
-use Minh164\EloNest\NodeBuilder;
+use Minh164\EloNest\ElonestBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Exception;
 
 /**
- * @mixin NodeBuilder
+ * @mixin ElonestBuilder
  */
 abstract class NodeRelation
 {
@@ -64,7 +64,7 @@ abstract class NodeRelation
      *
      * @return Builder
      */
-    abstract public function getQuery(NodeBuilder $query): Builder;
+    abstract public function getQuery(ElonestBuilder $query): Builder;
 
     /**
      * Mapping conditions to get children of each parent.

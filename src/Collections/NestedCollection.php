@@ -97,7 +97,7 @@ class NestedCollection extends Collection implements Nestable
     /**
      * @return array
      */
-    public function getmissingMains(): array
+    public function getMissingMains(): array
     {
         return $this->missingMains;
     }
@@ -185,7 +185,7 @@ class NestedCollection extends Collection implements Nestable
      * @return void
      * @throws Exception
      */
-    public function setNestedByRoot(int|string $rootValue, string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): void
+    public function setNestedByRoot(int|string $rootValue = 0, string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): void
     {
         $this->setOriginal();
 

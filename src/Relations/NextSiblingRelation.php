@@ -2,7 +2,7 @@
 
 namespace Minh164\EloNest\Relations;
 
-use Minh164\EloNest\NodeBuilder;
+use Minh164\EloNest\ElonestBuilder;
 use Illuminate\Database\Eloquent\Builder;
 
 class NextSiblingRelation extends NodeRelation
@@ -12,7 +12,7 @@ class NextSiblingRelation extends NodeRelation
         return $this->getQuery($this->model->newQuery())->first();
     }
 
-    public function getQuery(NodeBuilder $query): Builder
+    public function getQuery(ElonestBuilder $query): Builder
     {
         return $query->whereNextSibling($this->model->getRightValue());
     }

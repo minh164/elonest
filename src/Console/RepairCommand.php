@@ -23,7 +23,7 @@ class RepairCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'elonest:repair
+    protected $signature = 'elonest:node:repair
         {--model_namespace= : Namespace of nested model}
         {--original_number= : Original number of nested set node need be repaired}';
 
@@ -75,7 +75,7 @@ php artisan elonest:repair --model_namespace=App\Models\Category --original_numb
             exit();
         }
 
-        $this->info(json_encode(['message' => 'Nodes have generated successfully!']));
+        $this->info(json_encode(['message' => 'Nodes have repaired successfully!']));
         exit();
     }
 
@@ -128,24 +128,24 @@ php artisan elonest:repair --model_namespace=App\Models\Category --original_numb
     /**
      * Setup queries for update Left and Right values of nodes.
      *
-     * @param NestableModel $node
+     * @param NestableModel $startNode
      * @param int $value
      * @param array $leftSql
      * @param array $rightSql
      *
      * @return void
      */
-    private function buildUpdateQueries(NestableModel $node, int &$value, array &$leftSql, array &$rightSql): void
+    private function buildUpdateQueries(NestableModel $startNode, int &$value, array &$leftSql, array &$rightSql): void
     {
         $value++;
-        $node->lft = $value;
-        $leftSql[] = " WHEN {$node->id} THEN $value";
+        $startNode->lft = $value;
+        $leftSql[] = " WHEN {$startNode->id} THEN $value";
 
-        $children = $this->nodes->where('parent_id', $node->getPrimaryId());
+        $children = $this->nodes->where('parent_id', $startNode->getPrimaryId());
         if ($children->count() <= 0) {
-            $node->rgt = $node->lft + 1;
-            $value = $node->rgt;
-            $rightSql[] = " WHEN {$node->id} THEN $value";
+            $startNode->rgt = $startNode->lft + 1;
+            $value = $startNode->rgt;
+            $rightSql[] = " WHEN {$startNode->id} THEN $value";
 
             return;
         }
@@ -155,8 +155,8 @@ php artisan elonest:repair --model_namespace=App\Models\Category --original_numb
             $this->buildUpdateQueries($child, $value, $leftSql, $rightSql);
         }
 
-        $node->rgt = $value + 1;
-        $value = $node->rgt;
-        $rightSql[] = " WHEN {$node->id} THEN $value";
+        $startNode->rgt = $value + 1;
+        $value = $startNode->rgt;
+        $rightSql[] = " WHEN {$startNode->id} THEN $value";
     }
 }

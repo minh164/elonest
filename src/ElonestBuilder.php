@@ -10,9 +10,9 @@ use Minh164\EloNest\Collections\ElonestCollection;
 use Minh164\EloNest\Relations\NodeRelation;
 
 /**
- * Query builder with node model.
+ * Query builder with nestable model.
  */
-class NodeBuilder extends Builder
+class ElonestBuilder extends Builder
 {
     /**
      * @inheritdoc
@@ -225,7 +225,7 @@ class NodeBuilder extends Builder
      */
     public function whereChildren(int $parentLeft, int $parentRight): static
     {
-        $this->where(function (NodeBuilder $query) use ($parentLeft, $parentRight) {
+        $this->where(function (ElonestBuilder $query) use ($parentLeft, $parentRight) {
             $query
                 ->where($this->model->getLeftKey(), '>', $parentLeft)
                 ->where($this->model->getRightKey(), '<', $parentRight);
@@ -244,7 +244,7 @@ class NodeBuilder extends Builder
      */
     public function whereNodeAndChildren(int $parentLeft, int $parentRight): static
     {
-        $this->where(function (NodeBuilder $query) use ($parentLeft, $parentRight) {
+        $this->where(function (ElonestBuilder $query) use ($parentLeft, $parentRight) {
             $query
                 ->where($this->model->getLeftKey(), '>=', $parentLeft)
                 ->where($this->model->getRightKey(), '<=', $parentRight);
@@ -263,7 +263,7 @@ class NodeBuilder extends Builder
      */
     public function whereNotNodeAndChildren(int $parentLeft, int $parentRight): static
     {
-        $this->where(function (NodeBuilder $query) use ($parentLeft, $parentRight) {
+        $this->where(function (ElonestBuilder $query) use ($parentLeft, $parentRight) {
             $query
                 ->where($this->model->getLeftKey(), '<', $parentLeft)
                 ->orWhere($this->model->getRightKey(), '>', $parentRight);
@@ -431,7 +431,7 @@ class NodeBuilder extends Builder
         $childQuery->where(function ($query) use ($parents) {
             /* @var NestableModel $parent */
             foreach ($parents as $parent) {
-                $query->orWhere(function (NodeBuilder $query) use ($parent) {
+                $query->orWhere(function (ElonestBuilder $query) use ($parent) {
                     $query
                         ->whereChildren($parent->getLeftValue(), $parent->getRightValue())
                         ->whereOriginalNumber($parent->getOriginalNumberValue());

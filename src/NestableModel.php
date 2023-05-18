@@ -33,21 +33,21 @@ abstract class NestableModel extends Model
      */
     public function newEloquentBuilder($query): Builder
     {
-        return new NodeBuilder($query);
+        return new ElonestBuilder($query);
     }
 
     /**
-     * @return NodeBuilder
+     * @return ElonestBuilder
      */
-    public static function query(): NodeBuilder
+    public static function query(): ElonestBuilder
     {
         return parent::query();
     }
 
     /**
-     * @return NodeBuilder
+     * @return ElonestBuilder
      */
-    public function newQuery(): NodeBuilder
+    public function newQuery(): ElonestBuilder
     {
         return parent::newQuery();
     }

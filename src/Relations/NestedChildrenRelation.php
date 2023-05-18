@@ -2,7 +2,7 @@
 
 namespace Minh164\EloNest\Relations;
 
-use Minh164\EloNest\NodeBuilder;
+use Minh164\EloNest\ElonestBuilder;
 use Illuminate\Database\Eloquent\Builder;
 
 class NestedChildrenRelation extends NodeRelation
@@ -16,7 +16,7 @@ class NestedChildrenRelation extends NodeRelation
         return $this->getQuery($this->model->newQuery())->get();
     }
 
-    public function getQuery(NodeBuilder $query): Builder
+    public function getQuery(ElonestBuilder $query): Builder
     {
         return $query->whereChildren($this->model->getLeftValue(), $this->model->getRightValue());
     }
