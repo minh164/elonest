@@ -57,14 +57,15 @@ class ElonestBuilder extends Builder
     /**
      * Get nodes with nested relations.
      *
+     * @inheritDoc
+     * @param array|string $columns
      * @return ElonestCollection
-     *
      * @throws Exception
      */
-    public function getNodes(): ElonestCollection
+    public function get($columns = ['*']): ElonestCollection
     {
         /** @var ElonestCollection $mainNodes */
-        $mainNodes = $this->get();
+        $mainNodes = parent::get($columns);
 
         return $this->eagerLoadNodeRelations($mainNodes);
     }
@@ -72,13 +73,14 @@ class ElonestBuilder extends Builder
     /**
      * First node with nested relations.
      *
+     * @inheritDoc
+     * @param array|string $columns
      * @return NestableModel|null
-     *
      * @throws Exception
      */
-    public function firstNode(): ?NestableModel
+    public function first($columns = ['*']): ?NestableModel
     {
-        $node = $this->first();
+        $node = parent::first();
 
         if ($node) {
             $nodesWithRelations = $this->eagerLoadNodeRelations(new ElonestCollection([$node]));
