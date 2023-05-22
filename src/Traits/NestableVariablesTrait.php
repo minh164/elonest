@@ -42,6 +42,13 @@ trait NestableVariablesTrait
     protected string $originalNumberKey = 'original_number';
 
     /**
+     * Parent value of root node.
+     *
+     * @var int
+     */
+    protected int $rootNumber = 0;
+
+    /**
      * Get primary column value.
      *
      * @return int
@@ -206,5 +213,13 @@ trait NestableVariablesTrait
         foreach ($relations as $key => $value) {
             $this->nodeRelations[$key] = $value;
         }
+    }
+
+    /**
+     * @return int
+     */
+    public function getRootNumber(): int
+    {
+        return $this->rootNumber;
     }
 }

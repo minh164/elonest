@@ -286,6 +286,18 @@ class ElonestBuilder extends Builder
     }
 
     /**
+     * Root node query.
+     *
+     * @return $this
+     */
+    public function whereRoot(): static
+    {
+        $this->where($this->model->getParentKey(), $this->model->getRootNumber());
+
+        return $this;
+    }
+
+    /**
      * Previous sibling (left side) query.
      *
      * @param int $nodeLeft Left value of node

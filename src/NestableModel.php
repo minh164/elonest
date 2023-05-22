@@ -224,7 +224,7 @@ abstract class NestableModel extends Model
     }
 
     /**
-     * Determines has the same parent with another node.
+     * Determine has the same parent with another node.
      *
      * @param NestableModel $anotherNode Node which be need to compare
      *
@@ -233,5 +233,18 @@ abstract class NestableModel extends Model
     public function isTheSameParent(NestableModel $anotherNode): bool
     {
         return $this->getParentId() == $anotherNode->getParentId();
+    }
+
+    /**
+     * Determine has root in current model's set.
+     *
+     * @return bool
+     */
+    public function hasRoot(): bool
+    {
+        return $this->newQuery()
+            ->whereOriginalNumber($this->getOriginalNumberValue())
+            ->whereRoot()
+            ->exists();
     }
 }
