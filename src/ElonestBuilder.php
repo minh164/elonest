@@ -80,7 +80,7 @@ class ElonestBuilder extends Builder
      */
     public function first($columns = ['*']): ?NestableModel
     {
-        $node = parent::first();
+        $node = parent::first($columns);
 
         if ($node) {
             $nodesWithRelations = $this->eagerLoadNodeRelations(new ElonestCollection([$node]));
