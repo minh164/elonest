@@ -7,13 +7,11 @@ use Illuminate\Database\Eloquent\Builder;
 
 class NextSiblingRelation extends NodeRelation
 {
-    public function execute(): mixed
+    public function relatedQuery(ElonestBuilder $query): ?Builder
     {
-        return $this->getQuery($this->model->newQuery())->first();
-    }
-
-    public function getQuery(ElonestBuilder $query): Builder
-    {
+        if (is_null($this->model->getRightValue())) {
+            return null;
+        }
         return $query->whereNextSibling($this->model->getRightValue());
     }
 

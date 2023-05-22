@@ -2,6 +2,7 @@
 
 namespace Minh164\EloNest\Relations;
 
+use Minh164\EloNest\Exceptions\ElonestException;
 use Minh164\EloNest\NestableModel;
 use Minh164\EloNest\ElonestBuilder;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,18 +54,12 @@ abstract class NodeRelation
     }
 
     /**
-     * Return result query.
+     * Query to execute get relation.
+     * NOTICE: need return NULL if having error conditions. It will be help getQuery() or execute() return NULL value instead of throwing Exception.
      *
-     * @return mixed
+     * @return Builder|null
      */
-    abstract public function execute(): mixed;
-
-    /**
-     * Query to execute get relation nodes.
-     *
-     * @return Builder
-     */
-    abstract public function getQuery(ElonestBuilder $query): Builder;
+    abstract protected function relatedQuery(ElonestBuilder $query): ?Builder;
 
     /**
      * Mapping conditions to get children of each parent.
@@ -79,5 +74,47 @@ abstract class NodeRelation
     public function hasMany(): bool
     {
         return $this->hasMany;
+    }
+
+    /**
+     * Return relations query.
+     *
+     * @param ElonestBuilder $query
+     * @return Builder
+     * @throws ElonestException
+     */
+    public function getQuery(ElonestBuilder $query): Builder
+    {
+        try {
+            $query = $this->relatedQuery($query);
+
+            if (empty($query) || empty($this->model->getOriginalNumberValue())) {
+                throw new Exception("relatedQuery() is null or Original Number is missing");
+            }
+
+            return $query->whereOriginalNumber($this->model->getOriginalNumberValue());
+        } catch (Exception $e) {
+            throw new ElonestException("Node relation has something was wrong: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Return result query.
+     *
+     * @return mixed
+     */
+    public function execute(): mixed
+    {
+        // Only catch error from getQuery().
+        try {
+            $builder = $this->getQuery($this->model->newQuery());
+        } catch (ElonestException $e) {
+            return null;
+        }
+
+        if ($this->hasMany()) {
+            return $builder->get();
+        }
+        return $this->first();
     }
 }

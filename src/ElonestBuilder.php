@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Minh164\EloNest\Collections\ElonestCollection;
+use Minh164\EloNest\Exceptions\ElonestException;
 use Minh164\EloNest\Relations\NodeRelation;
 
 /**
@@ -142,20 +143,27 @@ class ElonestBuilder extends Builder
     {
         $childQuery = $this->model->newQuery();
 
-        $childQuery->where(function ($query) use ($parentNodes, $relation) {
+        $isNull = false;
+        $childQuery->where(function ($query) use ($parentNodes, $relation, &$isNull) {
             /* @var NestableModel $parentNode */
             foreach ($parentNodes as $parentNode) {
-                /* @var NodeRelation $nodeRelation */
-                $nodeRelation = $parentNode->$relation();
+                try {
+                    /* @var NodeRelation $nodeRelation */
+                    $nodeRelation = $parentNode->$relation();
 
-                $query->orWhere(function ($query) use ($nodeRelation, $parentNode) {
-                    $nodeRelation
-                        ->getQuery($query)
-                        ->whereOriginalNumber($parentNode->getOriginalNumberValue());
-                });
+                    $query->orWhere(function ($query) use ($nodeRelation, $parentNode) {
+                        $nodeRelation->getQuery($query);
+                    });
+                    $isNull = true;
+                } catch (ElonestException $e) {
+                    continue;
+                }
             }
         });
 
+        if (!$isNull) {
+            return collect([]);
+        }
         return $childQuery->get();
     }
 
@@ -210,7 +218,12 @@ class ElonestBuilder extends Builder
                 $childNodes = $this->setChildrenToParents($childNodes, $allChildNodes, $nodeRelation, $relationKey);
             }
 
-            $relations[$relationKey] = $nodeRelation->hasMany() ? $childNodes : $childNodes->first();
+            if ($childNodes->count() <= 0) {
+                $relations[$relationKey] = null;
+            } else {
+                $relations[$relationKey] = $nodeRelation->hasMany() ? $childNodes : $childNodes->first();
+            }
+
             $node->setNodeRelations($relations);
         }
 
