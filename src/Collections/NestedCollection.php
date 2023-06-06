@@ -123,7 +123,7 @@ class NestedCollection extends Collection implements Nestable
     }
 
     /**
-     * Arrange all items in collection to nested depths.
+     * Return a list is arranged all items in collection to nested depths.
      * NOTICE: If occurs any error while mutation is processing, state it will be reset to original.
      * Logic:
      *      1. Loop through all same depth nodes (assuming they are root) => Root list.
@@ -145,18 +145,17 @@ class NestedCollection extends Collection implements Nestable
      * @param string $mainKey Key of parent item.
      * @param string $nestedKey Key which child item will base on to be nested.
      * @param string $childrenKey Key name of child items will be returned.
-     * @return void
+     * @return static
      * @throws Exception
      */
-    public function setNestedByAll(string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): void
+    public function newNestedByAll(string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): static
     {
         $this->setOriginal();
+        $parentGroup = $this->groupBy($nestedKey);
+        $newCollection = new static([]);
 
-        // Solution 1:
-        //$this->items = $this->nestForAll($this, $mainKey, $nestedKey, $childrenKey)->toArray();
-
-        // Solution 2:
-        foreach ($this->items as $key => $item) {
+        foreach ($this->items as $item) {
+            $parentValue = $this->getTargetInItem($item, $nestedKey);
             $mainValue = $this->getTargetInItem($item, $mainKey);
             $root = $this->findByMain($mainValue, $mainKey);
             if (!$root) {
@@ -164,34 +163,61 @@ class NestedCollection extends Collection implements Nestable
             }
 
             // Set nested children for root.
-            $root = $this->nestForParents(new static([$root]), $mainKey, $nestedKey, $childrenKey, true)[0];
+            $root = $this->nestForParentsV2(new static([$root]), $parentGroup, $mainKey, $nestedKey, $childrenKey, true)[0];
 
-            // Replace root after set children in Root list.
-            $this->put($key, $root);
+            $newCollection->put($parentValue, $root);
         }
-        $this->items = array_values($this->items);
 
-        $this->setItemState(ItemStateConstant::BY_ALL);
+        // Only get root or missing parents.
+        return $newCollection->intersectByKeys($parentGroup)->values();
     }
 
     /**
-     * Arrange items to nested depths by root value.
-     * NOTICE: If occurs any error while mutation is processing, state it will be reset to original.
-     *
-     * @param int|string $rootValue Value of root which is used to determine starting level
      * @param string $mainKey Key of parent item.
      * @param string $nestedKey Key which child item will base on to be nested.
      * @param string $childrenKey Key name of child items will be returned.
      * @return void
      * @throws Exception
      */
-    public function setNestedByRoot(int|string $rootValue = 0, string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): void
+    public function setNestedByAll(string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): void
+    {
+        $this->items = $this->newNestedByAll($mainKey, $nestedKey, $childrenKey)->toArray();
+
+        $this->setItemState(ItemStateConstant::BY_ALL);
+    }
+
+    /**
+     * Return a list is arranged items to nested depths by root value.
+     * NOTICE: If occurs any error while mutation is processing, state it will be reset to original.
+     *
+     * @param int|string $rootValue Value of root which is used to determine starting level
+     * @param string $mainKey Key of parent item.
+     * @param string $nestedKey Key which child item will base on to be nested.
+     * @param string $childrenKey Key name of child items will be returned.
+     * @return static
+     * @throws Exception
+     */
+    public function newNestedByRoot(int|string $rootValue = 0, string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): static
     {
         $this->setOriginal();
 
         // Get all root items.
         $roots = $this->where($nestedKey, '=', $rootValue);
-        $this->items = $this->nestForParents($roots, $mainKey, $nestedKey, $childrenKey);
+
+        return $this->nestForParentsV2($roots, $this->groupBy($nestedKey), $mainKey, $nestedKey, $childrenKey);
+    }
+
+    /**
+     * @param int|string $rootValue
+     * @param string $mainKey
+     * @param string $nestedKey
+     * @param string $childrenKey
+     * @return void
+     * @throws Exception
+     */
+    public function setNestedByRoot(int|string $rootValue = 0, string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): void
+    {
+        $this->items = $this->newNestedByRoot($rootValue, $mainKey, $nestedKey, $childrenKey)->toArray();
 
         $this->accessedMains = array_values($this->accessedMains);
         $this->setMissingMains($mainKey);
@@ -199,24 +225,38 @@ class NestedCollection extends Collection implements Nestable
     }
 
     /**
-     * Arrange items to nested depths with parent item is first depth.
+     * Return a list is arranged items to nested depths with parent item is first depth.
      * NOTICE: If occurs any error while mutation is processing, state it will be reset to original.
      *
      * @param int|array $parentValue Main value of parent which be used to determine starting level
      * @param string $mainKey Key of parent item.
      * @param string $nestedKey Key which child item will base on to be nested.
      * @param string $childrenKey Key name of child items will be returned.
-     * @return void
+     * @return static
      * @throws Exception
      */
-    public function setNestedForParent(int|array $parentValue, string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): void
+    public function newNestedForParent(int|array $parentValue, string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): static
     {
         $this->setOriginal();
         $parentValue = is_array($parentValue) ? $parentValue : [$parentValue];
 
         // Get all parent items.
         $parents = $this->whereIn($mainKey, $parentValue);
-        $this->items = $this->nestForParents($parents, $mainKey, $nestedKey, $childrenKey);
+
+        return $this->nestForParentsV2($parents, $this->groupBy($nestedKey), $mainKey, $nestedKey, $childrenKey);
+    }
+
+    /**
+     * @param int|array $parentValue
+     * @param string $mainKey
+     * @param string $nestedKey
+     * @param string $childrenKey
+     * @return void
+     * @throws Exception
+     */
+    public function setNestedForParent(int|array $parentValue, string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): void
+    {
+        $this->items = $this->newNestedForParent($parentValue, $mainKey, $nestedKey, $childrenKey)->toArray();
 
         $this->accessedMains = array_values($this->accessedMains);
         $this->setMissingMains($mainKey);
@@ -245,7 +285,7 @@ class NestedCollection extends Collection implements Nestable
             }
 
             $item = $this->getArrayableItems($item);
-            $item[$childrenKey] = $childItems ?? [];
+            $item[$childrenKey] = $childItems ?? null;
             $items[$key] = $item;
         }
 
@@ -296,7 +336,7 @@ class NestedCollection extends Collection implements Nestable
     }
 
     /**
-     * Process set nested children for parent list.
+     * Ver 1 - Process set nested children for parent list.
      *
      * @param NestedCollection $items Parent item list
      * @param string $mainKey Key of main item.
@@ -306,7 +346,7 @@ class NestedCollection extends Collection implements Nestable
      * @return NestedCollection
      * @throws Exception
      */
-    protected function nestForParents(NestedCollection $items, string $mainKey, string $nestedKey, string $childrenKey, bool $accessOnce = false): static
+    protected function nestForParentsV1(NestedCollection $items, string $mainKey, string $nestedKey, string $childrenKey, bool $accessOnce = false): static
     {
         foreach ($items as $key => $item) {
             $mainValue = $this->getTargetInItem($item, $mainKey);
@@ -322,13 +362,62 @@ class NestedCollection extends Collection implements Nestable
             $childItems = $this->findChildrenByParent($mainValue, $nestedKey);
             // If item has children then continue with each child item.
             if (count($childItems)) {
-                $childItems = $this->nestForParents($childItems, $mainKey, $nestedKey, $childrenKey, $accessOnce);
+                $childItems = $this->nestForParentsV1($childItems, $mainKey, $nestedKey, $childrenKey, $accessOnce);
             }
 
             if (is_array($item)) {
                 $item[$childrenKey] = new static($childItems->toArray());
             } elseif (is_object($item)) {
                 $item->$childrenKey = new static($childItems->toArray());
+            }
+            $items->put($key, $item);
+        }
+
+        return $items->values();
+    }
+
+
+    /**
+     * Ver 2 - Process set nested children for parent list.
+     *
+     * @param NestedCollection $items Parent item list
+     * @param NestedCollection $parentGroup
+     * @param string $mainKey Key of main item.
+     * @param string $nestedKey Key which child items will base on to be nested.
+     * @param string $childrenKey Key name of child items will be returned.
+     * @param bool $accessOnce Enable mode for each child item will be accessed only once
+     * @return NestedCollection
+     * @throws Exception
+     */
+    protected function nestForParentsV2(
+        NestedCollection $items,
+        NestedCollection $parentGroup,
+        string $mainKey,
+        string $nestedKey,
+        string $childrenKey,
+        bool $accessOnce = false
+    ): static
+    {
+        foreach ($items as $key => $item) {
+            $mainValue = $this->getTargetInItem($item, $mainKey);
+            // Mark item was accessed.
+            $this->accessedMains[$mainValue] = $mainValue;
+
+            /* @var NestedCollection $children */
+            $children = $parentGroup->get($mainValue);
+            if ($children?->count() > 0) {
+                // Remove accessed group.
+                if ($accessOnce) {
+                    $parentGroup->forget($mainValue);
+                }
+
+                $children = $this->nestForParentsV2($children, $parentGroup, $mainKey, $nestedKey, $childrenKey);
+            }
+
+            if (is_array($item)) {
+                $item[$childrenKey] = !empty($children) ? new static($children->toArray()) : null;
+            } elseif (is_object($item)) {
+                $item->$childrenKey = !empty($children) ? new static($children->toArray()) : null;
             }
             $items->put($key, $item);
         }
