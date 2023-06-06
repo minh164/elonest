@@ -164,7 +164,7 @@ class NestedCollection extends Collection implements Nestable
             }
 
             // Set nested children for root.
-            $root = $this->nestForParents([$root], $mainKey, $nestedKey, $childrenKey, true)[0];
+            $root = $this->nestForParents(new static([$root]), $mainKey, $nestedKey, $childrenKey, true)[0];
 
             // Replace root after set children in Root list.
             $this->put($key, $root);
@@ -191,7 +191,7 @@ class NestedCollection extends Collection implements Nestable
 
         // Get all root items.
         $roots = $this->where($nestedKey, '=', $rootValue);
-        $this->items = $this->nestForParents($roots->toArray(), $mainKey, $nestedKey, $childrenKey);
+        $this->items = $this->nestForParents($roots, $mainKey, $nestedKey, $childrenKey);
 
         $this->accessedMains = array_values($this->accessedMains);
         $this->setMissingMains($mainKey);
@@ -216,7 +216,7 @@ class NestedCollection extends Collection implements Nestable
 
         // Get all parent items.
         $parents = $this->whereIn($mainKey, $parentValue);
-        $this->items = $this->nestForParents($parents->toArray(), $mainKey, $nestedKey, $childrenKey);
+        $this->items = $this->nestForParents($parents, $mainKey, $nestedKey, $childrenKey);
 
         $this->accessedMains = array_values($this->accessedMains);
         $this->setMissingMains($mainKey);
@@ -298,15 +298,15 @@ class NestedCollection extends Collection implements Nestable
     /**
      * Process set nested children for parent list.
      *
-     * @param array $items Parent item list
+     * @param NestedCollection $items Parent item list
      * @param string $mainKey Key of main item.
      * @param string $nestedKey Key which child items will base on to be nested.
      * @param string $childrenKey Key name of child items will be returned.
      * @param bool $accessOnce Enable mode for each child item will be accessed only once
-     * @return array
+     * @return NestedCollection
      * @throws Exception
      */
-    protected function nestForParents(array $items, string $mainKey, string $nestedKey, string $childrenKey, bool $accessOnce = false): array
+    protected function nestForParents(NestedCollection $items, string $mainKey, string $nestedKey, string $childrenKey, bool $accessOnce = false): static
     {
         foreach ($items as $key => $item) {
             $mainValue = $this->getTargetInItem($item, $mainKey);
@@ -319,21 +319,21 @@ class NestedCollection extends Collection implements Nestable
                 $this->removeByMain($mainValue, $mainKey);
             }
 
-            $childItems = $this->findChildrenByParent($mainValue, $nestedKey)->toArray();
+            $childItems = $this->findChildrenByParent($mainValue, $nestedKey);
             // If item has children then continue with each child item.
             if (count($childItems)) {
                 $childItems = $this->nestForParents($childItems, $mainKey, $nestedKey, $childrenKey, $accessOnce);
             }
 
             if (is_array($item)) {
-                $item[$childrenKey] = new static($childItems);
+                $item[$childrenKey] = new static($childItems->toArray());
             } elseif (is_object($item)) {
-                $item->$childrenKey = new static($childItems);
+                $item->$childrenKey = new static($childItems->toArray());
             }
-            $items[$key] = $item;
+            $items->put($key, $item);
         }
 
-        return array_values($items);
+        return $items->values();
     }
 
     /**
