@@ -2,6 +2,8 @@
 
 namespace Minh164\EloNest\Relations;
 
+use Illuminate\Database\Eloquent\Model;
+use Minh164\EloNest\Collections\ElonestCollection;
 use Minh164\EloNest\Exceptions\ElonestException;
 use Minh164\EloNest\NestableModel;
 use Minh164\EloNest\ElonestBuilder;
@@ -54,19 +56,16 @@ abstract class NodeRelation
     }
 
     /**
-     * Query to execute get relation.
-     * NOTICE: need return NULL if having error conditions. It will be help getQuery() or execute() return NULL value instead of throwing Exception.
+     * Return conditions array to execute get relation and map main node with its relation nodes.
+     * Example:
+     * [
+     *      ["column_1", "operation_1", "value_1"],
+     *      ["column_2", "operation_2", "value_2"],
+     * ]
      *
-     * @return Builder|null
+     * @return array
      */
-    abstract protected function relatedQuery(ElonestBuilder $query): ?Builder;
-
-    /**
-     * Mapping conditions to get children of each parent.
-     *
-     * @return MappingInfo
-     */
-    abstract public function getMapping(): MappingInfo;
+    abstract protected function relatedConditions(): array;
 
     /**
      * @return bool
@@ -85,25 +84,23 @@ abstract class NodeRelation
      */
     public function getQuery(ElonestBuilder $query): Builder
     {
-        try {
-            $query = $this->relatedQuery($query);
-
-            if (empty($query) || empty($this->model->getOriginalNumberValue())) {
-                throw new Exception("relatedQuery() is null or Original Number is missing");
-            }
-
-            return $query->whereOriginalNumber($this->model->getOriginalNumberValue());
-        } catch (Exception $e) {
-            throw new ElonestException("Node relation has something was wrong: " . $e->getMessage());
+        if (empty($query) || !count($this->relatedConditions()) || empty($this->model->getOriginalNumberValue())) {
+            throw new Exception("relatedConditions() is null or Original Number is missing");
         }
+
+        // TODO: process with OR condition later.
+        return $query
+            ->where($this->relatedConditions())
+            ->whereOriginalNumber($this->model->getOriginalNumberValue());
     }
 
     /**
      * Return result query.
      *
-     * @return mixed
+     * @return null|Model|Collection
+     * @throws Exception
      */
-    public function execute(): mixed
+    public function execute(): null|Model|Collection
     {
         // Only catch error from getQuery().
         try {
@@ -115,6 +112,97 @@ abstract class NodeRelation
         if ($this->hasMany()) {
             return $builder->get();
         }
-        return $this->first();
+        return $builder->first();
+    }
+
+    /**
+     * Arrange relation nodes into main nodes following depths.
+     *
+     * @param ElonestCollection $mainNodes Main nodes collection which will be returned at root list
+     * @param ElonestCollection $allRelatedNodes All related nodes of main nodes collection
+     * @param string $relationKey Key to set relation
+     *
+     * @return ElonestCollection
+     *
+     * @throws Exception
+     */
+    public function mapRelationsToMains(
+        ElonestCollection $mainNodes,
+        ElonestCollection $allRelatedNodes,
+        string $relationKey
+    ): Collection {
+        $relations = [];
+
+        /* @var NestableModel $node */
+        foreach ($mainNodes as $node) {
+            $this->model = $node;
+            $relatedNodes = $this->filterRelationsForMain($node, $allRelatedNodes);
+
+            // Recursive processing if isNested turn ON.
+            if ($relatedNodes->count() && $this->isNested) {
+                $relatedNodes = $this->mapRelationsToMains($relatedNodes, $allRelatedNodes, $relationKey);
+            }
+
+            if ($relatedNodes->count() <= 0) {
+                $relations[$relationKey] = null;
+            } else {
+                $relations[$relationKey] = $this->hasMany() ? $relatedNodes : $relatedNodes->first();
+            }
+
+            $node->setNodeRelations($relations);
+        }
+
+        return $mainNodes;
+    }
+
+    /**
+     * @param NestableModel $main
+     * @param ElonestCollection $allRelatedNodes
+     * @return Collection
+     */
+    protected function filterRelationsForMain(NestableModel $main, ElonestCollection $allRelatedNodes): ElonestCollection
+    {
+        // TODO: process with OR condition later.
+        $conditions = $this->relatedConditions();
+        $relatedNodes = $allRelatedNodes->filter(function (NestableModel $node) use ($conditions) {
+            $result = false;
+            foreach ($conditions as $condition) {
+                $key = $condition[0];
+                if (count($condition) == 2) {
+                    $result = $this->mapWithOperator($node->$key, $condition[1]);
+                } else {
+                    $result = $this->mapWithOperator($node->$key, $condition[2], $condition[1]);
+                }
+
+                if (!$result) break;
+            }
+            return $result;
+        });
+
+        return $relatedNodes->sortBy($main->getLeftKey());
+    }
+
+    /**
+     * @param string|null $operator
+     * @param mixed $retrieved Value of model field
+     * @param mixed $value Value will be compared
+     * @return bool
+     */
+    protected function mapWithOperator(mixed $retrieved, mixed $value, ?string $operator = null): bool
+    {
+        switch ($operator) {
+            default:
+            case '=':
+            case '==':  return $retrieved == $value;
+            case '!=':
+            case '<>':  return $retrieved != $value;
+            case '<':   return $retrieved < $value;
+            case '>':   return $retrieved > $value;
+            case '<=':  return $retrieved <= $value;
+            case '>=':  return $retrieved >= $value;
+            case '===': return $retrieved === $value;
+            case '!==': return $retrieved !== $value;
+            case '<=>': return $retrieved <=> $value;
+        }
     }
 }

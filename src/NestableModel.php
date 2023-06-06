@@ -9,8 +9,10 @@ use Minh164\EloNest\Collections\ElonestCollection;
 use Minh164\EloNest\Relations\NestedChildrenRelation;
 use Minh164\EloNest\Relations\NextSiblingRelation;
 use Minh164\EloNest\Relations\NodeRelation;
+use Minh164\EloNest\Relations\ParentsRelation;
 use Minh164\EloNest\Relations\PreviousSiblingRelation;
 use Minh164\EloNest\Traits\NestableVariablesTrait;
+use Exception;
 
 /**
  * Layer manipulate nested set model.
@@ -55,6 +57,7 @@ abstract class NestableModel extends Model
     /**
      * Get nested set model collection.
      *
+     * @inheritDoc
      * @param array $models
      *
      * @return ElonestCollection
@@ -65,10 +68,20 @@ abstract class NestableModel extends Model
     }
 
     /**
+     * Root model object to use for repair model set if it misses root model.
+     * Just provide a new Model without save to database.
+     *
+     * @param int $originalNumber
+     * @return $this
+     */
+    abstract public function newBackupRootObject(int $originalNumber): static;
+
+    /**
      * @inheritdoc
      *
      * @param string $key
      * @return mixed|null
+     * @throws Exception
      */
     public function __get($key)
     {
@@ -178,17 +191,24 @@ abstract class NestableModel extends Model
 
     /**
      * Get all children query.
-     *
      * @return NestedChildrenRelation
      */
-    public function nodeChildren(): NestedChildrenRelation
+    public function children(): NestedChildrenRelation
     {
         return new NestedChildrenRelation($this);
     }
 
     /**
+     * Get parents query.
+     * @return ParentsRelation
+     */
+    public function parents(): ParentsRelation
+    {
+        return new ParentsRelation($this);
+    }
+
+    /**
      * Get previous sibling query.
-     *
      * @return PreviousSiblingRelation
      */
     public function prevSibling(): PreviousSiblingRelation
@@ -198,7 +218,6 @@ abstract class NestableModel extends Model
 
     /**
      * Get next sibling query.
-     *
      * @return NextSiblingRelation
      */
     public function nextSibling(): NextSiblingRelation
@@ -224,7 +243,7 @@ abstract class NestableModel extends Model
     }
 
     /**
-     * Determine has the same parent with another node.
+     * Determines has the same parent with another node.
      *
      * @param NestableModel $anotherNode Node which be need to compare
      *
@@ -236,7 +255,17 @@ abstract class NestableModel extends Model
     }
 
     /**
-     * Determine has root in current model's set.
+     * Determines is root model.
+     *
+     * @return bool
+     */
+    public function isRoot(): bool
+    {
+        return $this->getParentId() == $this->getRootNumber();
+    }
+
+    /**
+     * Determines has root in current model's set.
      *
      * @return bool
      */

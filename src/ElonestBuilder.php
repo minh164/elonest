@@ -63,10 +63,13 @@ class ElonestBuilder extends Builder
      * @return ElonestCollection
      * @throws Exception
      */
-    public function get($columns = ['*']): ElonestCollection
+    public function get($columns = ['*'], bool $ignoreRelations = false): ElonestCollection
     {
         /** @var ElonestCollection $mainNodes */
         $mainNodes = parent::get($columns);
+        if ($ignoreRelations) {
+            return $mainNodes;
+        }
 
         return $this->eagerLoadNodeRelations($mainNodes);
     }
@@ -79,11 +82,11 @@ class ElonestBuilder extends Builder
      * @return NestableModel|null
      * @throws Exception
      */
-    public function first($columns = ['*']): ?NestableModel
+    public function first($columns = ['*'], bool $ignoreRelations = false): ?NestableModel
     {
         $node = parent::first($columns);
 
-        if ($node) {
+        if ($node && !$ignoreRelations) {
             $nodesWithRelations = $this->eagerLoadNodeRelations(new ElonestCollection([$node]));
             $node = $nodesWithRelations->first();
         }
@@ -114,17 +117,12 @@ class ElonestBuilder extends Builder
                     throw new Exception("$relation is not a " . NodeRelation::class . " instance");
                 }
 
-                $relationNodes = $this->getRelationChild($mainNodes, $relation);
+                $relationNodes = $this->getRelatedNodes($mainNodes, $relation);
 
                 /* @var NodeRelation $nodeRelation */
                 $nodeRelation = $this->model->$relation();
 
-                $mainNodes = $this->setChildrenToParents(
-                    $mainNodes,
-                    $relationNodes,
-                    $nodeRelation,
-                    $relation
-                );
+                $mainNodes = $nodeRelation->mapRelationsToMains($mainNodes, $relationNodes, $relation);
             }
         }
 
@@ -132,26 +130,26 @@ class ElonestBuilder extends Builder
     }
 
     /**
-     * Get all relation child nodes of parent nodes.
+     * Get all related nodes of main nodes.
      *
-     * @param Collection $parentNodes Parent node collection
-     * @param string $relation Relation name in model
+     * @param ElonestCollection $mainNodes Main node collection
+     * @param string $relation Relation key in model
      *
-     * @return Collection
+     * @return ElonestCollection
      */
-    protected function getRelationChild(Collection $parentNodes, string $relation): Collection
+    protected function getRelatedNodes(ElonestCollection $mainNodes, string $relation): ElonestCollection
     {
-        $childQuery = $this->model->newQuery();
+        $relatedQuery = $this->model->newQuery();
 
         $isNull = false;
-        $childQuery->where(function ($query) use ($parentNodes, $relation, &$isNull) {
-            /* @var NestableModel $parentNode */
-            foreach ($parentNodes as $parentNode) {
+        $relatedQuery->where(function ($query) use ($mainNodes, $relation, &$isNull) {
+            /* @var NestableModel $mainNode */
+            foreach ($mainNodes as $mainNode) {
                 try {
                     /* @var NodeRelation $nodeRelation */
-                    $nodeRelation = $parentNode->$relation();
+                    $nodeRelation = $mainNode->$relation();
 
-                    $query->orWhere(function ($query) use ($nodeRelation, $parentNode) {
+                    $query->orWhere(function ($query) use ($nodeRelation) {
                         $nodeRelation->getQuery($query);
                     });
                     $isNull = true;
@@ -164,71 +162,10 @@ class ElonestBuilder extends Builder
         if (!$isNull) {
             return collect([]);
         }
-        return $childQuery->get();
+        return $relatedQuery->get(['*'], true);
     }
 
-    /**
-     * Arrange relation nodes into main nodes following level.
-     *
-     * @param Collection $parentNodes Parent nodes collection which will be returned at root list
-     * @param Collection $allChildNodes All child nodes of parent nodes collection
-     * @param NodeRelation $nodeRelation Node relation instance
-     * @param string $relationKey Key to set relation
-     *
-     * @return Collection
-     *
-     * @throws Exception
-     */
-    protected function setChildrenToParents(
-        Collection $parentNodes,
-        Collection $allChildNodes,
-        NodeRelation $nodeRelation,
-        string $relationKey
-    ): Collection {
-        $relations = [];
 
-        $mapping = $nodeRelation->getMapping();
-
-        /* @var NestableModel $node */
-        foreach ($parentNodes as $node) {
-            $keyToMap = $mapping->getKeyToMap();
-            $operation = $mapping->getOperation();
-
-            // Processing valueToMap.
-            $valueKey = $mapping->getValueToMap()[0] ?? null;
-            $valueOperation = $mapping->getValueToMap()[1] ?? null;
-            $valueNumber = $mapping->getValueToMap()[2] ?? null;
-
-            $valueToMap = $node->$valueKey;
-            if ($valueKey && $valueOperation && $valueNumber) {
-                $valueToMap = match ($valueOperation) {
-                    '+' => $node->$valueKey + $valueNumber,
-                    '-' => $node->$valueKey - $valueNumber,
-                    '*' => $node->$valueKey * $valueNumber,
-                    '/' => $node->$valueKey / $valueNumber,
-                };
-            }
-
-            $childNodes = $allChildNodes
-                ->where($keyToMap, $operation, $valueToMap)
-                ->sortBy($node->getLeftKey());
-
-            // Recursive processing if isNested turn ON.
-            if ($childNodes->count() && $nodeRelation->isNested) {
-                $childNodes = $this->setChildrenToParents($childNodes, $allChildNodes, $nodeRelation, $relationKey);
-            }
-
-            if ($childNodes->count() <= 0) {
-                $relations[$relationKey] = null;
-            } else {
-                $relations[$relationKey] = $nodeRelation->hasMany() ? $childNodes : $childNodes->first();
-            }
-
-            $node->setNodeRelations($relations);
-        }
-
-        return $parentNodes;
-    }
 
     /**
      * All children of node query.
@@ -365,11 +302,12 @@ class ElonestBuilder extends Builder
      * @param int|null $parentId ID of parent
      *
      * @return NestableModel
+     * @throws Exception
      */
     public function createNode(array $data, int $parentId = null): NestableModel
     {
         if (!$parentId) {
-            return $this->createRootNode($data);
+            return $this->createRootNode($this->model->getMaxOriginalNumber() + 1, $data);
         }
 
         $insert = $data;
@@ -411,10 +349,12 @@ class ElonestBuilder extends Builder
     }
 
     /**
+     * @param int $originalNumber
      * @param array $data
      * @return NestableModel
+     * @throws Exception
      */
-    protected function createRootNode(array $data): NestableModel
+    protected function createRootNode(int $originalNumber, array $data): NestableModel
     {
         $insert = $data;
 
@@ -423,7 +363,7 @@ class ElonestBuilder extends Builder
 
         $insert[$model->getLeftKey()] = 1;
         $insert[$model->getRightKey()] = 2;
-        $insert[$model->getOriginalNumberKey()] = $model->getMaxOriginalNumber() + 1;
+        $insert[$model->getOriginalNumberKey()] = $originalNumber;
 
         /* @var static $builder */
         $builder = $model->newInstance()->newQuery();
@@ -440,6 +380,48 @@ class ElonestBuilder extends Builder
         }
 
         return parent::create($insert);
+    }
+
+    /**
+     * First root node by original number or create new one.
+     * @param int $originalNumber
+     * @param array $data
+     * @return NestableModel
+     * @throws Exception
+     */
+    public function firstOrCreateRoot(int $originalNumber, array $data): NestableModel
+    {
+        $root = $this->newQuery()
+            ->whereOriginalNumber($originalNumber)
+            ->whereRoot()
+            ->first();
+        if ($root) {
+            return $root;
+        }
+
+        return $this->createRootNode($originalNumber, $data);
+    }
+
+    /**
+     * Find root node by original number or create new one by backup object.
+     * @param int $originalNumber
+     * @return NestableModel
+     * @throws Exception
+     */
+    public function firstOrCreateBackupRoot(int $originalNumber): NestableModel
+    {
+        $root = $this->newQuery()
+            ->whereOriginalNumber($originalNumber)
+            ->whereRoot()
+            ->first();
+        if ($root) {
+            return $root;
+        }
+
+        $root = $this->model->newBackupRootObject($originalNumber);
+        $root->save();
+
+        return $root;
     }
 
     /**
