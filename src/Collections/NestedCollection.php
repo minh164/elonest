@@ -276,6 +276,11 @@ class NestedCollection extends Collection implements Nestable
     protected function getNestedItemArray(array $items, string $mainKey = 'id', string $nestedKey = 'parent_id', string $childrenKey = 'child_items'): array
     {
         foreach ($items as $key => $item) {
+            if (!$this->isTargetExisted($item, $childrenKey)) {
+                $items[$key] = $this->getArrayableItems($item);
+                continue;
+            }
+
             $childItems = $this->getTargetInItem($item, $childrenKey);
             $childItems = $this->getArrayableItems($childItems);
 
@@ -475,6 +480,18 @@ class NestedCollection extends Collection implements Nestable
         }
 
         return $items->values();
+    }
+
+    /**
+     * @param mixed $item
+     * @param string|int $key
+     * @return bool
+     */
+    protected function isTargetExisted(mixed $item, string|int $key): bool
+    {
+        $isArray = is_array($item);
+
+        return $isArray ? array_key_exists($key, $item) : property_exists($item, $key);
     }
 
     /**
