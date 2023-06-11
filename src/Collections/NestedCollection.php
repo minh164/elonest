@@ -152,24 +152,9 @@ class NestedCollection extends Collection implements Nestable
     {
         $this->setOriginal();
         $parentGroup = $this->groupBy($nestedKey);
-        $newCollection = new static([]);
+        $clone = clone $this;
 
-        foreach ($this->items as $item) {
-            $parentValue = $this->getTargetInItem($item, $nestedKey);
-            $mainValue = $this->getTargetInItem($item, $mainKey);
-            $root = $this->findByMain($mainValue, $mainKey);
-            if (!$root) {
-                continue;
-            }
-
-            // Set nested children for root.
-            $root = $this->nestForParentsV2(new static([$root]), $parentGroup, $mainKey, $nestedKey, $childrenKey, true)[0];
-
-            $newCollection->put($parentValue, $root);
-        }
-
-        // Only get root or missing parents.
-        return $newCollection->intersectByKeys($parentGroup)->values();
+        return $this->nestForAll($clone, $parentGroup, $mainKey, $nestedKey, $childrenKey);
     }
 
     /**
@@ -341,6 +326,25 @@ class NestedCollection extends Collection implements Nestable
     }
 
     /**
+     * Remove item by main value from a collection.
+     *
+     * @param NestedCollection $collection
+     * @param int|string $mainValue
+     * @param string $mainKey
+     * @return void
+     */
+    protected function removeByMainInList(NestedCollection $collection, int|string $mainValue, string $mainKey = 'id'): void
+    {
+        $item = $collection->where($mainKey, $mainValue)->toArray();
+        if (!count($item)) {
+            return;
+        }
+
+        $itemKey = array_keys($item);
+        $collection->forget($itemKey[0]);
+    }
+
+    /**
      * Ver 1 - Process set nested children for parent list.
      *
      * @param NestedCollection $items Parent item list
@@ -380,7 +384,6 @@ class NestedCollection extends Collection implements Nestable
 
         return $items->values();
     }
-
 
     /**
      * Ver 2 - Process set nested children for parent list.
@@ -431,55 +434,63 @@ class NestedCollection extends Collection implements Nestable
     }
 
     /**
-     * Another solution for setNestedByAll, but it seems complicated.
-     * @param NestedCollection $items
+     * Process nested by find levels for "flat" collection (from non-depth to depth list)
+     *
+     * @param NestedCollection $indexedItems
+     * @param NestedCollection $parentGroup
      * @param string $mainKey
      * @param string $nestedKey
      * @param string $childrenKey
-     * @param bool $isRoot
+     * @param NestedCollection|null $mainItems
      * @return $this
      * @throws Exception
      */
-    protected function nestForAll(NestedCollection $items, string $mainKey, string $nestedKey, string $childrenKey, bool $isRoot = true): static
+    protected function nestForAll(
+        NestedCollection $indexedItems,
+        NestedCollection $parentGroup,
+        string $mainKey,
+        string $nestedKey,
+        string $childrenKey,
+        ?NestedCollection $mainItems = null
+    ): static
     {
-        foreach ($items as $key => $item) {
+        $count = $indexedItems->count();
+        $nextKey = 0;
+
+        while ($nextKey < $count) {
+            $item = $indexedItems->get($nextKey);
+            if (!$item) {
+                $nextKey++;
+                continue;
+            }
+
             $mainValue = $this->getTargetInItem($item, $mainKey);
-            if (!$mainValue) {
-                continue;
-            }
+            // Mark item was accessed.
+            $this->accessedMains[$mainValue] = $mainValue;
 
-            // Determines
-            $isExistedInRoots = (bool) $this->where($mainKey, $mainValue)->first();
-            if (!$isRoot) {
-                // If current node is in child loop.
-                if ($isExistedInRoots) {
-                    // If child is existed in Root list, it will be added in children list of parent and be removed from Root list.
-                    $this->forget($key);
-                } else {
-                    // If child is not existed in Root list that means this child was processed, it will be skipped.
-                    continue;
+            /* @var NestedCollection $children */
+            $children = $parentGroup->get($mainValue);
+            if ($children?->count() > 0) {
+                // Remove children from Root list.
+                foreach ($children as $child) {
+                    $childMainValue = $this->getTargetInItem($child, $mainKey);
+                    $rootList = !empty($mainItems) ? $mainItems : $indexedItems;
+                    $this->removeByMainInList($rootList, $childMainValue, $mainKey);
                 }
-            } elseif (!$isExistedInRoots) {
-                // If current node is in root loop AND it was processed, it will be removed from Root list and skipped.
-                $items->forget($key);
-                continue;
-            }
 
-            // Find and set children for parent.
-            $childItems = $this->findChildrenByParent($mainValue, $nestedKey);
-            if (count($childItems)) {
-                $childItems = $this->nestForAll($childItems, $mainKey, $nestedKey, $childrenKey, false);
+                $children = $this->nestForAll($children, $parentGroup, $mainKey, $nestedKey, $childrenKey, $indexedItems);
             }
 
             if (is_array($item)) {
-                $item[$childrenKey] = $childItems;
+                $item[$childrenKey] = !empty($children) ? new static($children->toArray()) : null;
             } elseif (is_object($item)) {
-                $item->$childrenKey = $childItems;
+                $item->$childrenKey = !empty($children) ? new static($children->toArray()) : null;
             }
-            $items->put($key, $item);
+            $indexedItems->put($nextKey, $item);
+            $nextKey++;
         }
 
-        return $items->values();
+        return $indexedItems->values();
     }
 
     /**
