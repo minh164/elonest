@@ -243,15 +243,37 @@ abstract class NestableModel extends Model
     }
 
     /**
-     * Determines has the same parent with another node.
+     * Determines another node is sibling of this.
      *
      * @param NestableModel $anotherNode Node which be need to compare
      *
      * @return bool
      */
-    public function isTheSameParent(NestableModel $anotherNode): bool
+    public function isSiblingOf(NestableModel $anotherNode): bool
     {
         return $this->getParentId() == $anotherNode->getParentId();
+    }
+
+    /**
+     * Determines this is the closest parent of another node.
+     *
+     * @param NestableModel $anotherNode
+     * @return bool
+     */
+    public function isClosestParentOf(NestableModel $anotherNode): bool
+    {
+        return $this->getPrimaryId() == $anotherNode->getParentId();
+    }
+
+    /**
+     * Determines this is the closest child of another node.
+     *
+     * @param NestableModel $anotherNode
+     * @return bool
+     */
+    public function isClosestChildOf(NestableModel $anotherNode): bool
+    {
+        return $this->getParentId() == $anotherNode->getPrimaryId();
     }
 
     /**

@@ -3,7 +3,7 @@
 namespace Minh164\EloNest;
 
 use Minh164\EloNest\Exceptions\ElonestException;
-use Minh164\EloNest\Jobs\Inspections\InspectingJob;
+use Minh164\EloNest\Jobs\Inspections\StringInspectingJob;
 use Minh164\EloNest\Traits\NestableClassValidationTrait;
 
 /**
@@ -96,7 +96,7 @@ class ElonestInspector
      */
     public function inspect(): void
     {
-        InspectingJob::dispatchSync($this->sampleModel::class, $this->originalNumber);
+        StringInspectingJob::dispatchSync($this->sampleModel::class, $this->originalNumber);
         $this->findAndSetNewestInspection();
     }
 
@@ -106,6 +106,6 @@ class ElonestInspector
      */
     public function inspectByQueue(): void
     {
-        InspectingJob::dispatch($this->sampleModel::class, $this->originalNumber);
+        StringInspectingJob::dispatch($this->sampleModel::class, $this->originalNumber);
     }
 }
