@@ -4,8 +4,10 @@ namespace Minh164\EloNest;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Minh164\EloNest\Collections\ElonestCollection;
+use Minh164\EloNest\Listeners\HandleNodeCreating;
 use Minh164\EloNest\Relations\NestedChildrenRelation;
 use Minh164\EloNest\Relations\NextSiblingRelation;
 use Minh164\EloNest\Relations\NodeRelation;
@@ -99,6 +101,14 @@ abstract class NestableModel extends Model
         }
 
         return parent::__get($key);
+    }
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(HandleNodeCreating::class);
     }
 
     /**

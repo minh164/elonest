@@ -298,19 +298,17 @@ class ElonestBuilder extends Builder
     /**
      * Create new node.
      *
-     * @param array $data Attribute data
+     * @param array $insert Attribute data
      * @param int|null $parentId ID of parent
      *
      * @return NestableModel
      * @throws Exception
      */
-    public function createNode(array $data, int $parentId = null): NestableModel
+    public function createNode(array $insert, int $parentId = null): NestableModel
     {
         if (!$parentId) {
-            return $this->createRootNode($this->model->getMaxOriginalNumber() + 1, $data);
+            return $this->createRootNode($this->model->getMaxOriginalNumber() + 1, $insert);
         }
-
-        $insert = $data;
 
         DB::beginTransaction();
 
@@ -341,7 +339,8 @@ class ElonestBuilder extends Builder
         }
 
         /* @var NestableModel $node*/
-        $node = parent::create($insert);
+        $node = $this->newModelInstance($insert);
+        $node->saveQuietly();
 
         DB::commit();
 
@@ -350,14 +349,12 @@ class ElonestBuilder extends Builder
 
     /**
      * @param int $originalNumber
-     * @param array $data
+     * @param array $insert
      * @return NestableModel
      * @throws Exception
      */
-    protected function createRootNode(int $originalNumber, array $data): NestableModel
+    protected function createRootNode(int $originalNumber, array $insert): NestableModel
     {
-        $insert = $data;
-
         /* @var NestableModel $model */
         $model = $this->model;
 
@@ -365,6 +362,26 @@ class ElonestBuilder extends Builder
         $insert[$model->getRightKey()] = 2;
         $insert[$model->getOriginalNumberKey()] = $originalNumber;
 
+        // Use this if roots need chain together.
+        //$this->chainLatestRoot($model, $insert);
+
+        /* @var NestableModel $node*/
+        $node = $this->newModelInstance($insert);
+        $node->saveQuietly();
+
+        return $node;
+    }
+
+    /**
+     * Set left and right values are chained with previous root.
+     *
+     * @param NestableModel $model
+     * @param array $insertData
+     * @return void
+     * @throws Exception
+     */
+    protected function chainLatestRoot(NestableModel $model, array &$insertData): void
+    {
         /* @var static $builder */
         $builder = $model->newInstance()->newQuery();
 
@@ -378,8 +395,6 @@ class ElonestBuilder extends Builder
             $insert[$model->getLeftKey()] = $latestRoot->getRightValue() + 1;
             $insert[$model->getRightKey()] = $latestRoot->getRightValue() + 2;
         }
-
-        return parent::create($insert);
     }
 
     /**
