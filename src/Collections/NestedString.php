@@ -57,6 +57,21 @@ class NestedString
     }
 
     /**
+     * Replace old node with new node in main string.
+     *
+     * @param string $oldNode
+     * @param string $newNode
+     * @return void
+     * @throws ElonestException
+     */
+    public function replace(string $oldNode, string $newNode): void
+    {
+        static::validateNode($oldNode);
+        static::validateNode($newNode);
+        $this->string = str_replace($oldNode, $newNode, $this->string);
+    }
+
+    /**
      * @return int
      */
     public function getRootValue(): int
@@ -191,6 +206,16 @@ class NestedString
         $missing = $this->findMissing();
         $root = $this->findRoot();
         return [array_diff($missing, [$root]), $root];
+    }
+
+    /**
+     * Get missing only.
+     *
+     * @return array
+     */
+    public function findMissingWithoutRoot(): array
+    {
+        return $this->findMissingAndRoot()[0];
     }
 
     /**
@@ -506,6 +531,51 @@ class NestedString
     }
 
     /**
+     * Change parent ID of node.
+     *
+     * @param string $node
+     * @param int $newParentId
+     * @return void
+     * @throws ElonestException
+     */
+    public function changeParent(string &$node, int $newParentId): void
+    {
+        $oldParentId = $this->getParentId($node);
+        $node = str_replace($oldParentId, $newParentId, $node);
+    }
+
+    /**
+     * Change parent and replace in main string.
+     *
+     * @param string $node
+     * @param int $newParentId
+     * @return void
+     * @throws ElonestException
+     */
+    public function changeParentAndReplace(string &$node, int $newParentId): void
+    {
+        $oldNode = $node;
+        $this->changeParent($node, $newParentId);
+        $this->replace($oldNode, $node);
+    }
+
+    /**
+     * Change parent of node and nest it to parent.
+     *
+     * @param string $node
+     * @param int $newParentId
+     * @return void
+     * @throws ElonestException
+     */
+    public function changeParentAndNest(string &$node, int $newParentId): void
+    {
+        $this->changeParentAndReplace($node, $newParentId);
+        $children = $this->findNestedChildren($this->getId($node));
+        $nodeAndChildren = $node . $children;
+        $this->nestForParent($newParentId, $nodeAndChildren);
+    }
+
+    /**
      * @param string $nodes
      * @return void
      */
@@ -624,6 +694,7 @@ class NestedString
      * @param int $parentId
      * @param string $children
      * @return void
+     * @throws ElonestException
      */
     public function nestForParent(int $parentId, string $children): void
     {
@@ -633,8 +704,12 @@ class NestedString
             return;
         }
 
+        // Remove children (if they are old instead of new) before nest they to parent.
+        $this->deleteChainNodes($children);
+
         $parentLen = strlen($parent);
         $this->string = substr_replace($this->string, $children, $parentPos + $parentLen, 0);
+        $this->toNestedSignForInternal($children);
     }
 
     /**
@@ -690,7 +765,7 @@ class NestedString
     }
 
     /**
-     * Nest all nodes by chunks (use for large data).
+     * Nest all nodes by chunks.
      *
      * @param int|null $chunkSize
      * @return NestedString

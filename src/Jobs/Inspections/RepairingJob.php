@@ -8,10 +8,12 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Exception;
-use Minh164\EloNest\Collections\ElonestCollection;
+use Illuminate\Support\Facades\DB;
+use Minh164\EloNest\Collections\NestedString;
+use Minh164\EloNest\ElonestInspector;
 use Minh164\EloNest\Exceptions\ElonestException;
+use Minh164\EloNest\InspectRepairBase;
 use Minh164\EloNest\Jobs\Job;
-use Minh164\EloNest\ModelSetInspection;
 use Minh164\EloNest\NestableModel;
 use Minh164\EloNest\Traits\NestableClassValidationTrait;
 
@@ -19,111 +21,110 @@ class RepairingJob extends Job implements ShouldQueue
 {
     use NestableClassValidationTrait, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected int $inspectionId;
-
-    /**
-     * Determines model set need re-inspect, due to have changes about root or missing models.
-     */
-    protected bool $needInspect = false;
+    protected int $originalNumber;
+    protected string $modelName;
+    protected NestableModel $sampleModel;
+    protected NestedString $nestedString;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(int $inspectionId)
+    public function __construct(string $nestableModelClass, int $originalNumber)
     {
-        $this->inspectionId = $inspectionId;
+        $this->validateClass($nestableModelClass);
+
+        $this->modelName = $nestableModelClass;
+        $this->originalNumber = $originalNumber;
     }
 
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle(InspectRepairBase $base): void
     {
-        /* @var ModelSetInspection $inspection */
-        $inspection = ModelSetInspection::findOrFail($this->inspectionId);
-        if ($inspection->is_resolved) {
-            self::logInfo("Inspection ID: {$inspection->id} was resolved before");
-        }
-
         try {
-            $this->validateClass($inspection->class);
-            /* @var NestableModel $sampleModel */
-            $sampleModel = new $inspection->class();
+            DB::beginTransaction();
 
-            $root = $this->getRoot($sampleModel, $inspection);
-            $missing = $this->getMissing($sampleModel, $inspection);
-            if ($missing->count() > 0) {
-                $this->moveMissingToRoot($root, $missing);
-                $this->needInspect = true;
+            $this->setNestedString($base);
+            $root = $this->getRoot();
+
+            $this->nestedString = $this->nestedString->nestByAllWithChunk();
+
+            $missingList = $this->nestedString->findMissingWithoutRoot();
+            if (count($missingList) > 0) {
+                $this->nestMissingToRoot($root, $missingList);
             }
 
-            // Make a new inspection if it is necessary for re-calculate left right of model set.
-            if ($this->needInspect) {
+            $base->repairForString($this->sampleModel, $this->nestedString);
 
-            }
+            // Make new inspection.
+            $inspector = new ElonestInspector($this->modelName, $this->originalNumber);
+            $inspector->inspect();
+
+            self::logInfo("Repairing model set completely. Original number: {$this->originalNumber}");
+
+            DB::commit();
         } catch (Exception $e) {
-            self::logError("Inspection ID: {$inspection->id} has error: " . $e->getMessage());
+            DB::rollBack();
+            self::logError("String repairing has error: " . $e->getMessage());
         }
     }
 
     /**
-     * @param NestableModel $sampleModel
-     * @param ModelSetInspection $inspection
-     * @return NestableModel
+     * @param InspectRepairBase $base
+     * @return void
+     */
+    protected function setNestedString(InspectRepairBase $base): void
+    {
+        /* @var NestableModel $sampleModel */
+        $this->sampleModel = new $this->modelName();
+
+        $lazyChunks = $base->getLazyChunks($this->sampleModel, $this->originalNumber);
+        $this->nestedString = $base->makeStringByLazyChunks($lazyChunks);
+    }
+
+    /**
+     * @return string
      * @throws Exception
      */
-    protected function getRoot(NestableModel $sampleModel, ModelSetInspection $inspection): NestableModel
+    protected function getRoot(): string
     {
-        if (!empty($inspection->root_id)) {
-            $root = $sampleModel->newQuery()->findOrFail($inspection->root_id);
-        } else {
+        $root = $this->nestedString->findRoot();
+        if (!$root) {
             // Create root if it's not existed.
-            $root = $sampleModel->newQuery()->firstOrCreateBackupRoot($inspection->original_number);
-            $this->needInspect = true;
+            $rootModel = $this->sampleModel->newQuery()->firstOrCreateBackupRoot($this->originalNumber);
+            $root = NestedString::newNode($rootModel->getPrimaryId(), $rootModel->getRootNumber());
+
+            // Add root into string.
+            $this->nestedString->prepend($root);
         }
 
         return $root;
     }
 
     /**
-     * @param NestableModel $sampleModel
-     * @param ModelSetInspection $inspection
-     * @return ElonestCollection
-     * @throws Exception
-     */
-    protected function getMissing(NestableModel $sampleModel, ModelSetInspection $inspection): ElonestCollection
-    {
-        $ids = $inspection->missing_array;
-        $beforeCount = count($ids);
-        if (!$beforeCount) {
-            return new ElonestCollection([]);
-        }
-
-        $missing = $sampleModel->newQuery()->whereIn($sampleModel->getPrimaryName(), $ids)->get();
-        $afterCount = $missing->count();
-        if ($afterCount != $beforeCount) {
-            throw new ElonestException("Missing models only get $afterCount of $beforeCount");
-        }
-
-        return $missing;
-    }
-
-    /**
-     * Update parent of missing models by root.
-     * @param NestableModel $root
-     * @param ElonestCollection $missing
+     * Change missing nodes to children of root.
+     *
+     * @param string $root
+     * @param array $missingList
      * @return void
      * @throws ElonestException
      */
-    protected function moveMissingToRoot(NestableModel $root, ElonestCollection $missing): void
+    protected function nestMissingToRoot(string $root, array $missingList): void
     {
-        $missingIds = $missing->pluck($root->getPrimaryName());
-        if (!$missingIds->count()) {
-            throw new ElonestException("Missing models were not found");
+        if (!count($missingList)) {
+            return;
         }
 
-        $root->newQuery()
-            ->whereIn($root->getPrimaryName(), $missingIds)
-            ->update([$root->getParentKey() => $root->getPrimaryId()]);
+        $rootId = $this->nestedString->getId($root);
+        $missingIds = [];
+        foreach ($missingList as $missing) {
+            $missingIds[] = $this->nestedString->getId($missing);
+            $this->nestedString->changeParentAndNest($missing, $rootId);
+        }
+
+        $this->sampleModel->newQuery()
+            ->whereIn($this->sampleModel->getPrimaryName(), $missingIds)
+            ->update([$this->sampleModel->getParentKey() => $rootId]);
     }
 }

@@ -4,9 +4,7 @@ namespace Minh164\EloNest;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\LazyCollection;
-use Minh164\EloNest\Collections\NestedCollection;
 use Minh164\EloNest\Collections\NestedString;
-use Minh164\EloNest\Constants\InspectionConstant;
 use Minh164\EloNest\Exceptions\ElonestException;
 
 /**
@@ -100,29 +98,53 @@ class InspectRepairBase
     }
 
     /**
-     * Repair large model set.
+     * Find and make nested string for repairing.
      *
      * @param NestableModel $sampleModel
      * @param int $originalNumber
      * @return void
      * @throws ElonestException
      */
-    public function repairLarge(NestableModel $sampleModel, int $originalNumber): void
+    public function makeStringAndRepair(NestableModel $sampleModel, int $originalNumber): void
     {
         $lazyChunks = $this->getLazyChunks($sampleModel, $originalNumber);
         $nestedString = $this->makeStringByLazyChunks($lazyChunks);
-        $nestedString = $nestedString->nestByAllWithChunk(100);
+        $nestedString = $nestedString->nestByAllWithChunk();
 
+        $this->updateLeftRight($nestedString, $sampleModel);
+    }
+
+    /**
+     * Repair for nested string.
+     *
+     * @param NestableModel $sampleModel
+     * @param NestedString $nestedString
+     * @return void
+     * @throws ElonestException
+     */
+    public function repairForString(NestableModel $sampleModel, NestedString $nestedString): void
+    {
+        $this->updateLeftRight($nestedString, $sampleModel);
+    }
+
+    /**
+     * @param NestedString $nestedString
+     * @param NestableModel $sampleModel
+     * @return void
+     * @throws ElonestException
+     */
+    protected function updateLeftRight(NestedString $nestedString, NestableModel $sampleModel): void
+    {
         if (!$root = $nestedString->findRoot()) {
             throw new ElonestException("Cannot find root node in set");
         }
 
         $value = 1;
         $this->buildUpdateQueriesByString($root, $nestedString, $value, $leftQueries, $rightQueries);
-dd($leftQueries, $rightQueries);
+
         // Execute single query to update all nodes.
         DB::statement("
-            UPDATE nodes
+            UPDATE {$sampleModel->getTable()}
             SET
             {$sampleModel->getLeftKey()} = CASE {$sampleModel->getPrimaryName()} {$leftQueries} END,
             {$sampleModel->getRightKey()} = CASE {$sampleModel->getPrimaryName()} {$rightQueries} END
@@ -176,40 +198,4 @@ dd($leftQueries, $rightQueries);
             $this->buildUpdateQueriesByString($next, $string, $value, $leftQueries, $rightQueries);
         }
     }
-
-//    public function inspectLarge(NestableModel $sampleModel, int $originalNumber): void
-//    {
-//        $lazyChunks = $this->getLazyChunksByLeft($sampleModel, $originalNumber);
-//        $value = 0;
-//        /* @var LazyCollection $chunk */
-//        foreach ($lazyChunks as $chunk) {
-//            $count = $chunk->count() - 1;
-//            $key = 0;
-//            while ($key < $count) {
-//                /* @var NestableModel $current */
-//                $current = $chunk->get($key);
-//                if ($current->getLeftValue() != ++$value) {
-//                    // catch error...
-//                }
-//
-//                /* @var NestableModel $next */
-//                $next = $chunk->get(++$key) ?? null;
-//
-//                if (!$next) {
-//                    //...
-//                }
-//
-//                if ($next->isClosestChildOf($current)) {
-//                    // If Next is child of Current.
-//                    if ($next->getLeftValue() != ++$value) {
-//                        // catch error...
-//                    }
-//                } elseif ($next->isSiblingOf($current)) {
-//                    // If Next is sibling of Current.
-//                }
-//
-//                $key++;
-//            }
-//        }
-//    }
 }

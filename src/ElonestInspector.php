@@ -3,7 +3,8 @@
 namespace Minh164\EloNest;
 
 use Minh164\EloNest\Exceptions\ElonestException;
-use Minh164\EloNest\Jobs\Inspections\StringInspectingJob;
+use Minh164\EloNest\Jobs\Inspections\InspectingJob;
+use Minh164\EloNest\Jobs\Inspections\RepairingJob;
 use Minh164\EloNest\Traits\NestableClassValidationTrait;
 
 /**
@@ -53,6 +54,14 @@ class ElonestInspector
     }
 
     /**
+     * @return ModelSetInspection|null
+     */
+    public function getNewestInspection(): ?ModelSetInspection
+    {
+        return $this->newestInspection;
+    }
+
+    /**
      * Determines model set has inspected.
      * @return bool
      */
@@ -96,7 +105,7 @@ class ElonestInspector
      */
     public function inspect(): void
     {
-        StringInspectingJob::dispatchSync($this->sampleModel::class, $this->originalNumber);
+        InspectingJob::dispatchSync($this->sampleModel::class, $this->originalNumber);
         $this->findAndSetNewestInspection();
     }
 
@@ -104,8 +113,25 @@ class ElonestInspector
      * Make new inspection by asynchronous process.
      * @return void
      */
-    public function inspectByQueue(): void
+    public function inspectAsync(): void
     {
-        StringInspectingJob::dispatch($this->sampleModel::class, $this->originalNumber);
+        InspectingJob::dispatch($this->sampleModel::class, $this->originalNumber);
+    }
+
+    /**
+     * @return void
+     */
+    public function repair(): void
+    {
+        RepairingJob::dispatchSync($this->sampleModel::class, $this->originalNumber);
+    }
+
+    /**
+     * Repairing by asynchronous process.
+     * @return void
+     */
+    public function repairAsync(): void
+    {
+        RepairingJob::dispatch($this->sampleModel::class, $this->originalNumber);
     }
 }
