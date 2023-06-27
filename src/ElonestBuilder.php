@@ -160,7 +160,7 @@ class ElonestBuilder extends Builder
         });
 
         if (!$isNull) {
-            return collect([]);
+            return new ElonestCollection([]);
         }
         return $relatedQuery->get(['*'], true);
     }
