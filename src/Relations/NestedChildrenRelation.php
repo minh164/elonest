@@ -53,10 +53,10 @@ class NestedChildrenRelation extends NodeRelation
         }
 
         return $query
-//            ->whereBetween($this->model->getDepthKey(), [
-//                $this->model->getDepthValue(),
-//                $this->model->getDepthValue() + $this->depths
-//            ])
+            ->whereBetween($this->model->getDepthKey(), [
+                $this->model->getDepthValue(),
+                $this->model->getDepthValue() + $this->depths
+            ])
             ->where($this->relatedConditions())
             ->whereOriginalNumber($this->model->getOriginalNumberValue());
     }

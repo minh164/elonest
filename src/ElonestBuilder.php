@@ -107,22 +107,28 @@ class ElonestBuilder extends Builder
     {
         if ($this->hasNodeRelations()) {
             foreach ($this->withNodes as $relation) {
+                // Extract key and params.
+                $keyAndParams = explode(':', $relation);
+                $key = $keyAndParams[0] ?? null;
+                unset($keyAndParams[0]);
+                $params = $keyAndParams ?? null;
+
                 // Check relation is existed in model.
-                if (!method_exists($this->model::class, $relation)) {
-                    throw new Exception("$relation relation is not existed");
+                if (!method_exists($this->model::class, $key)) {
+                    throw new Exception("$key relation is not existed");
                 }
 
                 // Check relation is NodeRelation instance.
-                if (!$this->model->$relation() instanceof NodeRelation) {
-                    throw new Exception("$relation is not a " . NodeRelation::class . " instance");
+                if (!$this->model->$key() instanceof NodeRelation) {
+                    throw new Exception("$key is not a " . NodeRelation::class . " instance");
                 }
 
-                $relationNodes = $this->getRelatedNodes($mainNodes, $relation);
+                $relationNodes = $this->getRelatedNodes($mainNodes, $key, $params);
 
-                /* @var NodeRelation $nodeRelation */
-                $nodeRelation = $this->model->$relation();
+                /* @var NodeRelation $nodeRelationSample */
+                $nodeRelationSample = $this->model->$key();
 
-                $mainNodes = $nodeRelation->mapRelationsToMains($mainNodes, $relationNodes, $relation);
+                $mainNodes = $nodeRelationSample->mapRelationsToMains($mainNodes, $relationNodes, $key);
             }
         }
 
@@ -134,20 +140,25 @@ class ElonestBuilder extends Builder
      *
      * @param ElonestCollection $mainNodes Main node collection
      * @param string $relation Relation key in model
-     *
+     * @param array|null $params Params of relation method
      * @return ElonestCollection
+     * @throws Exception
      */
-    protected function getRelatedNodes(ElonestCollection $mainNodes, string $relation): ElonestCollection
+    protected function getRelatedNodes(ElonestCollection $mainNodes, string $relation, ?array $params = null): ElonestCollection
     {
         $relatedQuery = $this->model->newQuery();
 
         $isNull = false;
-        $relatedQuery->where(function ($query) use ($mainNodes, $relation, &$isNull) {
+        $relatedQuery->where(function ($query) use ($mainNodes, $relation, &$isNull, $params) {
             /* @var NestableModel $mainNode */
             foreach ($mainNodes as $mainNode) {
                 try {
                     /* @var NodeRelation $nodeRelation */
-                    $nodeRelation = $mainNode->$relation();
+                    if ($params) {
+                        $nodeRelation = $mainNode->$relation(...$params);
+                    } else {
+                        $nodeRelation = $mainNode->$relation();
+                    }
 
                     $query->orWhere(function ($query) use ($nodeRelation) {
                         $nodeRelation->getQuery($query);

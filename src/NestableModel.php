@@ -201,11 +201,13 @@ abstract class NestableModel extends Model
 
     /**
      * Get all children query.
+     *
+     * @param int|null $depth
      * @return NestedChildrenRelation
      */
-    public function children(): NestedChildrenRelation
+    public function children(?int $depth = 1): NestedChildrenRelation
     {
-        return new NestedChildrenRelation($this);
+        return new NestedChildrenRelation($this, $depth);
     }
 
     /**
