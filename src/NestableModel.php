@@ -323,4 +323,46 @@ abstract class NestableModel extends Model
     {
         $this->newQuery()->where($this->getPrimaryName(), $this->getPrimaryId())->moveNode($prev, $next);
     }
+
+    /**
+     * Move node after a target node (move to right).
+     *
+     * @param NestableModel $targetNode
+     * @return void
+     * @throws Exception
+     */
+    public function moveAfter(NestableModel $targetNode): void
+    {
+        $this->newQuery()
+            ->where($this->getPrimaryName(), $this->getPrimaryId())
+            ->moveNode($targetNode->getRightValue(), $targetNode->getRightValue() + 1);
+    }
+
+    /**
+     * Move node before a target node (move to left).
+     *
+     * @param NestableModel $targetNode
+     * @return void
+     * @throws Exception
+     */
+    public function moveBefore(NestableModel $targetNode): void
+    {
+        $this->newQuery()
+            ->where($this->getPrimaryName(), $this->getPrimaryId())
+            ->moveNode($targetNode->getLeftValue() - 1, $targetNode->getLeftValue());
+    }
+
+    /**
+     * Move node into parent (moved node will be the last in parent).
+     *
+     * @param NestableModel $targetNode
+     * @return void
+     * @throws Exception
+     */
+    public function moveIn(NestableModel $targetNode): void
+    {
+        $this->newQuery()
+            ->where($this->getPrimaryName(), $this->getPrimaryId())
+            ->moveNode($targetNode->getRightValue() - 1, $targetNode->getRightValue());
+    }
 }
