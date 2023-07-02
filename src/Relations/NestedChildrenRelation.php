@@ -2,8 +2,10 @@
 
 namespace Minh164\EloNest\Relations;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use Minh164\EloNest\Collections\ElonestCollection;
+use Minh164\EloNest\ElonestBuilder;
 use Minh164\EloNest\NestableModel;
 use Exception;
 
@@ -12,6 +14,17 @@ class NestedChildrenRelation extends NodeRelation
     public bool $isNested = true;
 
     protected bool $hasMany = true;
+
+    /**
+     * Depth number need to query.
+     */
+    protected int $depths;
+
+    public function __construct(NestableModel $model, ?int $depths = 1)
+    {
+        parent::__construct($model);
+        $this->depths = $depths;
+    }
 
     /**
      * @inheritDoc
@@ -23,6 +36,29 @@ class NestedChildrenRelation extends NodeRelation
             [$this->model->getLeftKey(), '>', $this->model->getLeftValue()],
             [$this->model->getRightKey(), '<', $this->model->getRightValue()],
         ];
+    }
+
+    /**
+     * Override parent method.
+     *
+     * @inheritDoc
+     * @param ElonestBuilder $query
+     * @return Builder
+     * @throws Exception
+     */
+    public function getQuery(ElonestBuilder $query): Builder
+    {
+        if (empty($query) || !count($this->relatedConditions()) || empty($this->model->getOriginalNumberValue())) {
+            throw new Exception("relatedConditions() is null or Original Number is missing");
+        }
+
+        return $query
+//            ->whereBetween($this->model->getDepthKey(), [
+//                $this->model->getDepthValue(),
+//                $this->model->getDepthValue() + $this->depths
+//            ])
+            ->where($this->relatedConditions())
+            ->whereOriginalNumber($this->model->getOriginalNumberValue());
     }
 
     /**

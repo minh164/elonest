@@ -308,4 +308,17 @@ abstract class NestableModel extends Model
             ->whereRoot()
             ->exists();
     }
+
+    /**
+     * Move node to specified position.
+     *
+     * @param int $prev
+     * @param int $next
+     * @return void
+     * @throws Exception
+     */
+    public function moveTo(int $prev, int $next): void
+    {
+        $this->newQuery()->where($this->getPrimaryName(), $this->getPrimaryId())->moveNode($prev, $next);
+    }
 }

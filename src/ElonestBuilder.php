@@ -519,6 +519,9 @@ class ElonestBuilder extends Builder
 
         /* @var NestableModel[]|Collection $nodes Main nodes */
         $nodes = $this->get()->sortBy($model->getLeftKey());
+        if (!$nodes->count()) {
+            throw new Exception('Does not have any nodes were found to moving');
+        }
 
         DB::beginTransaction();
 
@@ -558,12 +561,13 @@ class ElonestBuilder extends Builder
         try {
             DB::beginTransaction();
 
-            /* @var NestableModel $model */
             $model = $this->model;
 
-            /** Step 6: Update parent of updating node. */
-            $this->setParentAfterMoving($prev, $node);
+            /** Update parent and get new depth of updating node. */
+            $targetNode = $this->getTargetNodeOf($node, $prev);
+            $this->setParentWhenMoving($prev, $targetNode, $node);
             $node->save();
+            $depthOperation = $this->getDepthOperationWhenMoving($prev, $targetNode, $node);
 
             /** Step 0: Get updating node and children IDs before another nodes are modified */
             $nodeAndChildrenIds = $model->newInstance()->newQuery()
@@ -612,6 +616,7 @@ class ElonestBuilder extends Builder
                 ->update([
                     $model->getLeftKey() => DB::raw($model->getLeftKey() . " + $spaceTwo"),
                     $model->getRightKey() => DB::raw($model->getRightKey() . " + $spaceTwo"),
+                    $model->getDepthKey() => DB::raw($model->getDepthKey() . $depthOperation[0] . $depthOperation[1]),
                 ]);
 
             DB::commit();
@@ -639,12 +644,13 @@ class ElonestBuilder extends Builder
         try {
             DB::beginTransaction();
 
-            /* @var NestableModel $model */
             $model = $this->model;
 
-            /** Step 5: Update parent of updating node. */
-            $this->setParentAfterMoving($prev, $node);
+            /** Update parent and get new depth of updating node. */
+            $targetNode = $this->getTargetNodeOf($node, $prev);
+            $this->setParentWhenMoving($prev, $targetNode, $node);
             $node->save();
+            $depthOperation = $this->getDepthOperationWhenMoving($prev, $targetNode, $node);
 
             /** Step 0: Get updating node and children IDs before another nodes are modified */
             $nodeAndChildrenIds = $model->newInstance()->newQuery()
@@ -691,6 +697,7 @@ class ElonestBuilder extends Builder
                 ->update([
                     $model->getLeftKey() => DB::raw($model->getLeftKey() . " - $spaceTwo"),
                     $model->getRightKey() => DB::raw($model->getRightKey() . " - $spaceTwo"),
+                    $model->getDepthKey() => DB::raw($model->getDepthKey() . $depthOperation[0] . $depthOperation[1]),
                 ]);
 
             DB::commit();
@@ -703,19 +710,19 @@ class ElonestBuilder extends Builder
     }
 
     /**
-     * Set parent ID for node after it was moved.
+     * Get target node which specify node moves to.
      *
-     * @param int $prev Previous value to get relation node
-     * @param NestableModel $node Node need to set parent
-     *
+     * @param NestableModel $node Node will move to target
+     * @param int $prev Previous value to get target node
+     * @return NestableModel
      * @throws Exception
      */
-    protected function setParentAfterMoving(int $prev, NestableModel $node): void
+    protected function getTargetNodeOf(NestableModel $node, int $prev): NestableModel
     {
         $model = $this->model;
 
-        /* @var NestableModel $relationNode */
-        $relationNode = $model->newInstance()->newQuery()
+        /* @var NestableModel $targetNode */
+        $targetNode = $model->newInstance()->newQuery()
             ->whereOriginalNumber($node->getOriginalNumberValue())
             ->where(function ($query) use ($prev, $model) {
                 $query->where($model->getRightKey(), '=', $prev)
@@ -724,17 +731,82 @@ class ElonestBuilder extends Builder
             ->first();
 
         // TODO: review and handle this case.
-        if (!$relationNode) {
+        if (!$targetNode) {
             throw new Exception("Node has RIGHT = $prev or LEFT = $prev is not found");
         }
 
-        if ($relationNode->getLeftValue() == $prev) {
-            // If relation node is parent of node.
-            $node->setParentId($relationNode->getPrimaryId());
-        } elseif ($relationNode->getRightValue() == $prev) {
-            // If relation node is sibling of node.
-            $node->setParentId($relationNode->getParentId());
+        return $targetNode;
+    }
+
+    /**
+     * Determines target node will be a sibling one.
+     *
+     * @param NestableModel $targetNode
+     * @param int $prev
+     * @return bool
+     */
+    protected function isSiblingTarget(NestableModel $targetNode, int $prev): bool
+    {
+        return $targetNode->getRightValue() == $prev;
+    }
+
+    /**
+     * Determines target node will be a parent one.
+     *
+     * @param NestableModel $targetNode
+     * @param int $prev
+     * @return bool
+     */
+    protected function isParentTarget(NestableModel $targetNode, int $prev): bool
+    {
+        return $targetNode->getLeftValue() == $prev;
+    }
+
+    /**
+     * Set parent ID for node after it will be moved.
+     *
+     * @param int $prev Previous value to determine relation
+     * @param NestableModel $node Node need to set parent
+     *
+     * @throws Exception
+     */
+    protected function setParentWhenMoving(int $prev, NestableModel $targetNode, NestableModel $node): void
+    {
+        if ($this->isParentTarget($targetNode, $prev)) {
+            $node->setParentId($targetNode->getPrimaryId());
+        } elseif ($this->isSiblingTarget($targetNode, $prev)) {
+            $node->setParentId($targetNode->getParentId());
         }
+    }
+
+    /**
+     * Get operation for depth node after it will be moved.
+     *
+     * @param NestableModel $targetNode
+     * @param NestableModel $node
+     * @return array
+     */
+    protected function getDepthOperationWhenMoving(int $prev, NestableModel $targetNode, NestableModel $node): array
+    {
+        $oldDepth = $node->getDepthValue();
+        $newDepth = $oldDepth;
+
+        if ($this->isParentTarget($targetNode, $prev)) {
+            $newDepth = $targetNode->getDepthValue() + 1;
+        } elseif ($this->isSiblingTarget($targetNode, $prev)) {
+            $newDepth = $targetNode->getDepthValue();
+        }
+
+        switch (true) {
+            case $oldDepth > $newDepth:
+                $operation = ['-', $oldDepth - $newDepth]; break;
+            case $oldDepth < $newDepth:
+                $operation = ['+', $newDepth - $oldDepth]; break;
+            default:
+                $operation = ['+', 0];
+        }
+
+        return $operation;
     }
 
     /**
