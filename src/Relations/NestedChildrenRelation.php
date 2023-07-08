@@ -18,9 +18,12 @@ class NestedChildrenRelation extends NodeRelation
     /**
      * Depth number need to query.
      */
-    protected int $depths;
+    protected ?int $depths;
 
-    public function __construct(NestableModel $model, ?int $depths = 1)
+    /**
+     * @throws Exception
+     */
+    public function __construct(NestableModel $model, ?int $depths = null)
     {
         parent::__construct($model);
         $this->depths = $depths;
@@ -55,7 +58,7 @@ class NestedChildrenRelation extends NodeRelation
         return $query
             ->whereBetween($this->model->getDepthKey(), [
                 $this->model->getDepthValue(),
-                $this->model->getDepthValue() + $this->depths
+                $this->model->getDepthValue() + ($this->depths ?? $this->model->countDepths())
             ])
             ->where($this->relatedConditions())
             ->whereOriginalNumber($this->model->getOriginalNumberValue());

@@ -205,7 +205,7 @@ abstract class NestableModel extends Model
      * @param int|null $depth
      * @return NestedChildrenRelation
      */
-    public function children(?int $depth = 1): NestedChildrenRelation
+    public function children(?int $depth = null): NestedChildrenRelation
     {
         return new NestedChildrenRelation($this, $depth);
     }
@@ -241,6 +241,7 @@ abstract class NestableModel extends Model
      * Get the latest original number.
      *
      * @return int
+     * @throws Exception
      */
     public function getMaxOriginalNumber(): int
     {
@@ -252,6 +253,27 @@ abstract class NestableModel extends Model
             ->first();
 
         return $node?->getOriginalNumberValue() ?? 0;
+    }
+
+    /**
+     * Count total depths in node.
+     *
+     * @return int
+     * @throws Exception
+     */
+    public function countDepths(): int
+    {
+        $lowestChild = $this->newQuery()
+            ->whereChildren($this->getLeftValue(), $this->getRightValue())
+            ->whereOriginalNumber($this->getOriginalNumberValue())
+            ->orderBy($this->getDepthKey(), 'DESC')
+            ->first();
+
+        if (!$lowestChild) {
+            return 0;
+        }
+
+        return $lowestChild->getDepthValue() - $this->getDepthValue();
     }
 
     /**
