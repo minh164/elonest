@@ -104,7 +104,7 @@ abstract class NodeRelation
     {
         // Only catch error from getQuery().
         try {
-            $builder = $this->getQuery($this->model->newQuery());
+            $builder = $this->getQuery($this->model->newQueryWithoutScopes());
         } catch (ElonestException $e) {
             return null;
         }

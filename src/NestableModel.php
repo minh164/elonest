@@ -134,7 +134,7 @@ abstract class NestableModel extends Model
      */
     public function loadNodeRelations(mixed $relationKeys): static
     {
-        $newQuery = $this->newQuery()->withNodes($relationKeys);
+        $newQuery = $this->newQueryWithoutScopes()->withNodes($relationKeys);
 
         $newQuery->eagerLoadNodeRelations(new ElonestCollection([$this]));
 
@@ -246,7 +246,7 @@ abstract class NestableModel extends Model
     public function getMaxOriginalNumber(): int
     {
         /* @var NestableModel $node */
-        $node = (new static())->newQuery()
+        $node = (new static())->newQueryWithoutScopes()
             ->select($this->getOriginalNumberKey())
             ->groupBy($this->getOriginalNumberKey())
             ->orderBy($this->getOriginalNumberKey(), 'DESC')
@@ -263,7 +263,7 @@ abstract class NestableModel extends Model
      */
     public function countDepths(): int
     {
-        $lowestChild = $this->newQuery()
+        $lowestChild = $this->newQueryWithoutScopes()
             ->whereChildren($this->getLeftValue(), $this->getRightValue())
             ->whereOriginalNumber($this->getOriginalNumberValue())
             ->orderBy($this->getDepthKey(), 'DESC')
@@ -327,7 +327,7 @@ abstract class NestableModel extends Model
      */
     public function hasRoot(): bool
     {
-        return $this->newQuery()
+        return $this->newQueryWithoutScopes()
             ->whereOriginalNumber($this->getOriginalNumberValue())
             ->whereRoot()
             ->exists();
@@ -343,7 +343,7 @@ abstract class NestableModel extends Model
      */
     public function moveTo(int $prev, int $next): void
     {
-        $this->newQuery()->where($this->getPrimaryName(), $this->getPrimaryId())->moveNode($prev, $next);
+        $this->newQueryWithoutScopes()->where($this->getPrimaryName(), $this->getPrimaryId())->moveNode($prev, $next);
     }
 
     /**
@@ -355,7 +355,7 @@ abstract class NestableModel extends Model
      */
     public function moveAfter(NestableModel $targetNode): void
     {
-        $this->newQuery()
+        $this->newQueryWithoutScopes()
             ->where($this->getPrimaryName(), $this->getPrimaryId())
             ->moveNode($targetNode->getRightValue(), $targetNode->getRightValue() + 1);
     }
@@ -369,7 +369,7 @@ abstract class NestableModel extends Model
      */
     public function moveBefore(NestableModel $targetNode): void
     {
-        $this->newQuery()
+        $this->newQueryWithoutScopes()
             ->where($this->getPrimaryName(), $this->getPrimaryId())
             ->moveNode($targetNode->getLeftValue() - 1, $targetNode->getLeftValue());
     }
@@ -383,7 +383,7 @@ abstract class NestableModel extends Model
      */
     public function moveIn(NestableModel $targetNode): void
     {
-        $this->newQuery()
+        $this->newQueryWithoutScopes()
             ->where($this->getPrimaryName(), $this->getPrimaryId())
             ->moveNode($targetNode->getRightValue() - 1, $targetNode->getRightValue());
     }

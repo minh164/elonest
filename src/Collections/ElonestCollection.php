@@ -30,7 +30,7 @@ class ElonestCollection extends EloquentCollection
                 throw new Exception('Object is not a ' . NestableModel::class . ' instance');
             }
 
-            $query = $model->newQuery()->withNodes($relations);
+            $query = $model->newQueryWithoutScopes()->withNodes($relations);
             $query->eagerLoadNodeRelations($this);
         }
 

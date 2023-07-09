@@ -146,7 +146,7 @@ class ElonestBuilder extends Builder
      */
     protected function getRelatedNodes(ElonestCollection $mainNodes, string $relation, ?array $params = null): ElonestCollection
     {
-        $relatedQuery = $this->model->newQuery();
+        $relatedQuery = $this->model->newQueryWithoutScopes();
 
         $isNull = false;
         $relatedQuery->where(function ($query) use ($mainNodes, $relation, &$isNull, $params) {
@@ -335,7 +335,7 @@ class ElonestBuilder extends Builder
             // Update right value of another nodes.
             $this->model
                 ->newInstance()
-                ->newQuery()
+                ->newQueryWithoutScopes()
                 ->whereOriginalNumber($parent->getOriginalNumberValue())
                 ->where($parent->getRightKey(), '>=', $parent->getRightValue())
                 ->increment($parent->getRightKey(), 2);
@@ -343,7 +343,7 @@ class ElonestBuilder extends Builder
             // Update left value of another nodes.
             $this->model
                 ->newInstance()
-                ->newQuery()
+                ->newQueryWithoutScopes()
                 ->whereOriginalNumber($parent->getOriginalNumberValue())
                 ->where($parent->getLeftKey(), '>', $parent->getRightValue())
                 ->increment($parent->getLeftKey(), 2);
@@ -394,7 +394,7 @@ class ElonestBuilder extends Builder
     protected function chainLatestRoot(NestableModel $model, array &$insertData): void
     {
         /* @var static $builder */
-        $builder = $model->newInstance()->newQuery();
+        $builder = $model->newInstance()->newQueryWithoutScopes();
 
         /* @var NestableModel $latestRoot */
         $latestRoot = $builder
@@ -417,7 +417,7 @@ class ElonestBuilder extends Builder
      */
     public function firstOrCreateRoot(int $originalNumber, array $data): NestableModel
     {
-        $root = $this->newQuery()
+        $root = $this->model->newQueryWithoutScopes()
             ->whereOriginalNumber($originalNumber)
             ->whereRoot()
             ->first();
@@ -436,7 +436,7 @@ class ElonestBuilder extends Builder
      */
     public function firstOrCreateBackupRoot(int $originalNumber): NestableModel
     {
-        $root = $this->newQuery()
+        $root = $this->model->newQueryWithoutScopes()
             ->whereOriginalNumber($originalNumber)
             ->whereRoot()
             ->first();
@@ -445,7 +445,7 @@ class ElonestBuilder extends Builder
         }
 
         $root = $this->model->newBackupRootObject($originalNumber);
-        $root->save();
+        $root->saveQuietly();
 
         return $root;
     }
@@ -462,7 +462,7 @@ class ElonestBuilder extends Builder
         $parents = $this->get()->sortBy($model->getLeftKey());
 
         // Child query.
-        $childQuery = $model->newInstance()->newQuery();
+        $childQuery = $model->newInstance()->newQueryWithoutScopes();
         $childQuery->where(function ($query) use ($parents) {
             /* @var NestableModel $parent */
             foreach ($parents as $parent) {
@@ -493,13 +493,13 @@ class ElonestBuilder extends Builder
             $subtractionAmount += $currentSubtractionAmount;
 
             // Decreasing left of other right nodes.
-            $model->newInstance()->newQuery()
+            $model->newInstance()->newQueryWithoutScopes()
                 ->whereOriginalNumber($parent->getOriginalNumberValue())
                 ->where($model->getLeftKey(), '>', $parent->getRightValue())
                 ->decrement($model->getLeftKey(), $currentSubtractionAmount);
 
             // Decreasing right of other right nodes.
-            $model->newInstance()->newQuery()
+            $model->newInstance()->newQueryWithoutScopes()
                 ->whereOriginalNumber($parent->getOriginalNumberValue())
                 ->where($model->getRightKey(), '>', $parent->getRightValue())
                 ->decrement($model->getRightKey(), $currentSubtractionAmount);
@@ -581,7 +581,7 @@ class ElonestBuilder extends Builder
             $depthOperation = $this->getDepthOperationWhenMoving($prev, $targetNode, $node);
 
             /** Step 0: Get updating node and children IDs before another nodes are modified */
-            $nodeAndChildrenIds = $model->newInstance()->newQuery()
+            $nodeAndChildrenIds = $model->newInstance()->newQueryWithoutScopes()
                 ->whereOriginalNumber($node->getOriginalNumberValue())
                 ->whereNodeAndChildren($node->getLeftValue(), $node->getRightValue())
                 ->get()
@@ -595,7 +595,7 @@ class ElonestBuilder extends Builder
              * and RIGHT <= willBeSibling RIGHT
              * and Excluding updating node, and it's children
              */
-            $model->newInstance()->newQuery()
+            $model->newInstance()->newQueryWithoutScopes()
                 ->whereOriginalNumber($node->getOriginalNumberValue())
                 ->whereNotIn($model->getPrimaryName(), $nodeAndChildrenIds)
                 ->where($model->getRightKey(), '>', $node->getRightValue())
@@ -609,7 +609,7 @@ class ElonestBuilder extends Builder
              * and LEFT <= willBeSibling RIGHT
              * and Excluding updating node, and it's children
              */
-            $model->newInstance()->newQuery()
+            $model->newInstance()->newQueryWithoutScopes()
                 ->whereOriginalNumber($node->getOriginalNumberValue())
                 ->whereNotIn($model->getPrimaryName(), $nodeAndChildrenIds)
                 ->where($model->getLeftKey(), '>', $node->getRightValue())
@@ -622,7 +622,7 @@ class ElonestBuilder extends Builder
             $spaceTwo = ($prev - ($node->getLeftValue() + $spaceOne)) + 1;
 
             /** Step 5: Update LEFT and RIGHT of both updating node, and it's children */
-            $model->newInstance()->newQuery()
+            $model->newInstance()->newQueryWithoutScopes()
                 ->whereIn($model->getPrimaryName(), $nodeAndChildrenIds)
                 ->update([
                     $model->getLeftKey() => DB::raw($model->getLeftKey() . " + $spaceTwo"),
@@ -664,7 +664,7 @@ class ElonestBuilder extends Builder
             $depthOperation = $this->getDepthOperationWhenMoving($prev, $targetNode, $node);
 
             /** Step 0: Get updating node and children IDs before another nodes are modified */
-            $nodeAndChildrenIds = $model->newInstance()->newQuery()
+            $nodeAndChildrenIds = $model->newInstance()->newQueryWithoutScopes()
                 ->whereOriginalNumber($node->getOriginalNumberValue())
                 ->whereNodeAndChildren($node->getLeftValue(), $node->getRightValue())
                 ->get()
@@ -679,7 +679,7 @@ class ElonestBuilder extends Builder
              * and LEFT < updating node LEFT
              * and Excluding updating node, and it's children
              */
-            $model->newInstance()->newQuery()
+            $model->newInstance()->newQueryWithoutScopes()
                 ->whereOriginalNumber($node->getOriginalNumberValue())
                 ->whereNotIn($model->getPrimaryName(), $nodeAndChildrenIds)
                 ->where($model->getLeftKey(), '>=', $next)
@@ -693,7 +693,7 @@ class ElonestBuilder extends Builder
              * and RIGHT < updating node LEFT
              * and Excluding updating node, and it's children
              */
-            $model->newInstance()->newQuery()
+            $model->newInstance()->newQueryWithoutScopes()
                 ->whereOriginalNumber($node->getOriginalNumberValue())
                 ->whereNotIn($model->getPrimaryName(), $nodeAndChildrenIds)
                 ->where($model->getRightKey(), '>=', $next)
@@ -703,7 +703,7 @@ class ElonestBuilder extends Builder
                 ]);
 
             /** Step 4: Update LEFT and RIGHT of both updating node, and it's children */
-            $model->newInstance()->newQuery()
+            $model->newInstance()->newQueryWithoutScopes()
                 ->whereIn($model->getPrimaryName(), $nodeAndChildrenIds)
                 ->update([
                     $model->getLeftKey() => DB::raw($model->getLeftKey() . " - $spaceTwo"),
@@ -733,7 +733,7 @@ class ElonestBuilder extends Builder
         $model = $this->model;
 
         /* @var NestableModel $targetNode */
-        $targetNode = $model->newInstance()->newQuery()
+        $targetNode = $model->newInstance()->newQueryWithoutScopes()
             ->whereOriginalNumber($node->getOriginalNumberValue())
             ->where(function ($query) use ($prev, $model) {
                 $query->where($model->getRightKey(), '=', $prev)

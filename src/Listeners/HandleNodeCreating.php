@@ -49,7 +49,7 @@ class HandleNodeCreating
             // Update right value of another nodes.
             $this->model
                 ->newInstance()
-                ->newQuery()
+                ->newQueryWithoutScopes()
                 ->whereOriginalNumber($parent->getOriginalNumberValue())
                 ->where($parent->getRightKey(), '>=', $parent->getRightValue())
                 ->increment($parent->getRightKey(), 2);
@@ -57,7 +57,7 @@ class HandleNodeCreating
             // Update left value of another nodes.
             $this->model
                 ->newInstance()
-                ->newQuery()
+                ->newQueryWithoutScopes()
                 ->whereOriginalNumber($parent->getOriginalNumberValue())
                 ->where($parent->getLeftKey(), '>', $parent->getRightValue())
                 ->increment($parent->getLeftKey(), 2);

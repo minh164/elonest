@@ -3,6 +3,7 @@
 namespace Minh164\EloNest;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\LazyCollection;
 use Minh164\EloNest\Collections\NestedString;
 use Minh164\EloNest\Exceptions\ElonestException;
@@ -25,7 +26,7 @@ class InspectRepairBase
         $currentId = 0;
         while (true) {
             $nodes = $sampleModel
-                ->newQuery()
+                ->newQueryWithoutScopes()
                 ->whereOriginalNumber($originalNumber)
                 ->where($sampleModel->getPrimaryName(), '>', $currentId)
                 ->orderBy($sampleModel->getPrimaryName())
@@ -58,7 +59,7 @@ class InspectRepairBase
         $offset = 0;
         while (true) {
             $nodes = $sampleModel
-                ->newQuery()
+                ->newQueryWithoutScopes()
                 ->whereOriginalNumber($originalNumber)
                 ->orderBy($sampleModel->getLeftKey())
                 ->offset($offset)
@@ -119,6 +120,7 @@ class InspectRepairBase
      *
      * @param NestableModel $sampleModel
      * @param NestedString $nestedString
+     * @param int $originalNumber
      * @return void
      * @throws ElonestException
      */
@@ -140,23 +142,37 @@ class InspectRepairBase
         }
 
         $value = 1;
-        $this->buildUpdateQueriesByString($root, $nestedString, $value, $leftQueries, $rightQueries);
+        $depth = 0;
+        $this->buildUpdateQueriesByString(
+            $root,
+            $nestedString,
+            $value,
+            $depth,
+            $leftQueries,
+            $rightQueries,
+            $depthQueries
+        );
 
-        // Execute single query to update all nodes.
-        DB::statement("
+        $updateSql = "
             UPDATE {$sampleModel->getTable()}
             SET
             {$sampleModel->getLeftKey()} = CASE {$sampleModel->getPrimaryName()} {$leftQueries} END,
-            {$sampleModel->getRightKey()} = CASE {$sampleModel->getPrimaryName()} {$rightQueries} END
-        ");
+            {$sampleModel->getRightKey()} = CASE {$sampleModel->getPrimaryName()} {$rightQueries} END,
+            {$sampleModel->getDepthKey()} = CASE {$sampleModel->getPrimaryName()} {$depthQueries} END
+        ";
+
+        // Execute single query to update all nodes.
+        DB::statement($updateSql);
     }
 
     /**
      * @param string $current
      * @param NestedString $string
      * @param int|null $value
+     * @param int|null $depth
      * @param string|null $leftQueries
      * @param string|null $rightQueries
+     * @param string|null $depthQueries
      * @return void
      * @throws ElonestException
      */
@@ -164,8 +180,10 @@ class InspectRepairBase
         string $current,
         NestedString &$string,
         ?int &$value,
+        ?int $depth,
         ?string &$leftQueries = '',
-        ?string &$rightQueries = ''
+        ?string &$rightQueries = '',
+        ?string &$depthQueries = ''
     ): void
     {
         NestedString::validateNode($current);
@@ -175,6 +193,8 @@ class InspectRepairBase
         $leftQueries .= " WHEN $currentId THEN $value";
         $value++;
 
+        $depthQueries .= " WHEN $currentId THEN $depth";
+
         while ($next = $string->getByIndex(0)) {
             // If Next is NOT a child of Current, break and set right value for Current.
             if ($currentId != $string->getParentId($next)) {
@@ -182,7 +202,15 @@ class InspectRepairBase
             }
 
             // If Next is child of Current.
-            $this->buildUpdateQueriesByString($next, $string, $value, $leftQueries, $rightQueries);
+            $this->buildUpdateQueriesByString(
+                $next,
+                $string,
+                $value,
+                $depth + 1,
+                $leftQueries,
+                $rightQueries,
+                $depthQueries
+            );
         }
 
         $rightQueries .= " WHEN $currentId THEN $value";
@@ -195,7 +223,15 @@ class InspectRepairBase
         // Next is sibling of Current.
         if ($string->getParentId($next) == $string->getParentId($current)) {
             $string->deleteChainNodes($next);
-            $this->buildUpdateQueriesByString($next, $string, $value, $leftQueries, $rightQueries);
+            $this->buildUpdateQueriesByString(
+                $next,
+                $string,
+                $value,
+                $depth,
+                $leftQueries,
+                $rightQueries,
+                $depthQueries
+            );
         }
     }
 }

@@ -92,7 +92,7 @@ class RepairingJob extends Job implements ShouldQueue
         $root = $this->nestedString->findRoot();
         if (!$root) {
             // Create root if it's not existed.
-            $rootModel = $this->sampleModel->newQuery()->firstOrCreateBackupRoot($this->originalNumber);
+            $rootModel = $this->sampleModel->newQueryWithoutScopes()->firstOrCreateBackupRoot($this->originalNumber);
             $root = NestedString::newNode($rootModel->getPrimaryId(), $rootModel->getRootNumber());
 
             // Add root into string.
@@ -123,7 +123,7 @@ class RepairingJob extends Job implements ShouldQueue
             $this->nestedString->changeParentAndNest($missing, $rootId);
         }
 
-        $this->sampleModel->newQuery()
+        $this->sampleModel->newQueryWithoutScopes()
             ->whereIn($this->sampleModel->getPrimaryName(), $missingIds)
             ->update([$this->sampleModel->getParentKey() => $rootId]);
     }

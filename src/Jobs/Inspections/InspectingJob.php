@@ -79,9 +79,7 @@ class InspectingJob extends Job implements ShouldQueue
             if (!$root) {
                 $this->rootPrimaryId = null;
                 $this->setError("Does not have root in set", InspectionConstant::DOESNT_HAVE_ROOT_CODE);
-                $inspection = $this->createInspection();
-                self::logInfo("Inspecting model set completely. Inspection ID: $inspection->id");
-                return;
+                goto final_step;
             }
 
             $this->rootPrimaryId = $this->nestedString->getId($root);
@@ -96,6 +94,7 @@ class InspectingJob extends Job implements ShouldQueue
                 $this->setMissing($missing);
             }
 
+            final_step:
             $inspection = $this->createInspection();
             self::logInfo("Inspecting model set completely. Inspection ID: $inspection->id");
 
