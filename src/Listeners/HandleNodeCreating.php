@@ -53,7 +53,7 @@ class HandleNodeCreating
     protected function performAsChild(int $parentId): void
     {
         /* @var NestableModel $parent */
-        $parent = $this->model->newInstance()::findOrFail($parentId);
+        $parent = $this->model->newInstance()->newQueryWithoutScopes()::findOrFail($parentId);
         if ($parent) {
             $this->model->setLeftValue($parent->getRightValue());
             $this->model->setRightValue( $this->model->getLeftValue() + 1);
