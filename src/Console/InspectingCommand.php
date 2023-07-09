@@ -27,7 +27,7 @@ class InspectingCommand extends Command
      */
     protected $description = 'Inspecting nodes in model set
 Example:
-php artisan elonest:set:inspect --model=App\Models\Category --og=1';
+php artisan elonest:set:inspect --model=App\\\\Models\\\\Model --og=1';
 
     /**
      * Execute the console command.

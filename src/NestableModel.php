@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Minh164\EloNest\Collections\ElonestCollection;
 use Minh164\EloNest\Listeners\HandleNodeCreating;
+use Minh164\EloNest\Listeners\HandleNodeDeleting;
 use Minh164\EloNest\Relations\NestedChildrenRelation;
 use Minh164\EloNest\Relations\NextSiblingRelation;
 use Minh164\EloNest\Relations\NodeRelation;
@@ -54,6 +55,14 @@ abstract class NestableModel extends Model
     public function newQuery(): ElonestBuilder
     {
         return parent::newQuery();
+    }
+
+    /**
+     * @return ElonestBuilder|Model
+     */
+    public function newQueryWithoutScopes(): ElonestBuilder|Model
+    {
+        return parent::newQueryWithoutScopes();
     }
 
     /**
@@ -109,6 +118,7 @@ abstract class NestableModel extends Model
     protected static function booted(): void
     {
         static::creating(HandleNodeCreating::class);
+        static::deleting(HandleNodeDeleting::class);
     }
 
     /**

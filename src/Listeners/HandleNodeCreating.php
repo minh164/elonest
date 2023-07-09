@@ -2,8 +2,14 @@
 
 namespace Minh164\EloNest\Listeners;
 
+use Exception;
+use Illuminate\Support\Facades\DB;
+use Minh164\EloNest\Exceptions\ElonestException;
 use Minh164\EloNest\NestableModel;
 
+/**
+ * Node creating listener.
+ */
 class HandleNodeCreating
 {
     protected NestableModel $model;
@@ -22,10 +28,19 @@ class HandleNodeCreating
     public function handle(NestableModel $model): void
     {
         $this->model = $model;
-        if ($parentId = $this->model->getParentId()) {
-            $this->performAsChild($parentId);
-        } else {
-            $this->performAsRoot($this->model->getMaxOriginalNumber() + 1);
+        try {
+            DB::beginTransaction();
+
+            if ($parentId = $this->model->getParentId()) {
+                $this->performAsChild($parentId);
+            } else {
+                $this->performAsRoot($this->model->getMaxOriginalNumber() + 1);
+            }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new ElonestException($e->getMessage());
         }
     }
 

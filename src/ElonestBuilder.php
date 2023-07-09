@@ -317,43 +317,12 @@ class ElonestBuilder extends Builder
      */
     public function createNode(array $insert, int $parentId = null): NestableModel
     {
-        if (!$parentId) {
-            return $this->createRootNode($this->model->getMaxOriginalNumber() + 1, $insert);
-        }
-
-        DB::beginTransaction();
-
-        /* @var NestableModel $parent */
-        $parent = $this->model->newInstance()::findOrFail($parentId);
-        if ($parent) {
-            $insert[$parent->getLeftKey()] = $parent->getRightValue();
-            $insert[$parent->getRightKey()] = $insert[$parent->getLeftKey()] + 1;
-            $insert[$parent->getParentKey()] = $parent->getPrimaryId();
-            $insert[$parent->getDepthKey()] = $parent->getDepthValue() + 1;
-            $insert[$parent->getOriginalNumberKey()] = $parent->getOriginalNumberValue();
-
-            // Update right value of another nodes.
-            $this->model
-                ->newInstance()
-                ->newQueryWithoutScopes()
-                ->whereOriginalNumber($parent->getOriginalNumberValue())
-                ->where($parent->getRightKey(), '>=', $parent->getRightValue())
-                ->increment($parent->getRightKey(), 2);
-
-            // Update left value of another nodes.
-            $this->model
-                ->newInstance()
-                ->newQueryWithoutScopes()
-                ->whereOriginalNumber($parent->getOriginalNumberValue())
-                ->where($parent->getLeftKey(), '>', $parent->getRightValue())
-                ->increment($parent->getLeftKey(), 2);
-        }
-
         /* @var NestableModel $node*/
         $node = $this->newModelInstance($insert);
-        $node->saveQuietly();
+        $node->setParentId($parentId);
 
-        DB::commit();
+        // Use save model to fire "creating" event.
+        $node->save();
 
         return $node;
     }
@@ -461,7 +430,7 @@ class ElonestBuilder extends Builder
         /* @var NestableModel[]|Collection $parents Main nodes */
         $parents = $this->get()->sortBy($model->getLeftKey());
 
-        // Child query.
+        /* @var ElonestBuilder $childQuery */
         $childQuery = $model->newInstance()->newQueryWithoutScopes();
         $childQuery->where(function ($query) use ($parents) {
             /* @var NestableModel $parent */
@@ -505,7 +474,7 @@ class ElonestBuilder extends Builder
                 ->decrement($model->getRightKey(), $currentSubtractionAmount);
 
             // Delete parent.
-            $parent->delete();
+            $parent->deleteQuietly();
         }
 
         DB::commit();
