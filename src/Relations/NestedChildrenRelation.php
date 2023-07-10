@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use Minh164\EloNest\Collections\ElonestCollection;
 use Minh164\EloNest\ElonestBuilder;
+use Minh164\EloNest\Exceptions\ElonestException;
 use Minh164\EloNest\NestableModel;
 use Exception;
+use Minh164\EloNest\NodeRelationBuilder;
 
 class NestedChildrenRelation extends NodeRelation
 {
@@ -42,18 +44,15 @@ class NestedChildrenRelation extends NodeRelation
     }
 
     /**
-     * Override parent method.
-     *
      * @inheritDoc
-     * @param ElonestBuilder $query
-     * @return Builder
      * @throws Exception
      */
-    public function getQuery(ElonestBuilder $query): Builder
+    public function getQuery(?NodeRelationBuilder $query = null): NodeRelationBuilder
     {
-        if (empty($query) || !count($this->relatedConditions()) || empty($this->model->getOriginalNumberValue())) {
-            throw new Exception("relatedConditions() is null or Original Number is missing");
+        if (!count($this->relatedConditions()) || empty($this->model->getOriginalNumberValue())) {
+            return $this->model->newNodeRelationBuilder($this);
         }
+        $query = !empty($query) ? $query : $this->model->newNodeRelationBuilder($this);
 
         return $query
             ->whereBetween($this->model->getDepthKey(), [

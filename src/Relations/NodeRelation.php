@@ -10,9 +10,10 @@ use Minh164\EloNest\ElonestBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Exception;
+use Minh164\EloNest\NodeRelationBuilder;
 
 /**
- * @mixin ElonestBuilder
+ * @mixin NodeRelationBuilder
  */
 abstract class NodeRelation
 {
@@ -78,15 +79,17 @@ abstract class NodeRelation
     /**
      * Return relations query.
      *
-     * @param ElonestBuilder $query
-     * @return Builder
-     * @throws ElonestException
+     * @param NodeRelationBuilder|null $query Chaining query from external builder
+     * @return NodeRelationBuilder|null
      */
-    public function getQuery(ElonestBuilder $query): Builder
+    public function getQuery(?NodeRelationBuilder $query = null): ?NodeRelationBuilder
     {
-        if (empty($query) || !count($this->relatedConditions()) || empty($this->model->getOriginalNumberValue())) {
-            throw new Exception("relatedConditions() is null or Original Number is missing");
+        if (!count($this->relatedConditions()) || empty($this->model->getOriginalNumberValue())) {
+            //throw new ElonestException("relatedConditions() is null or Original Number is missing");
+            return $this->model->newNodeRelationBuilder($this);
         }
+
+        $query = !empty($query) ? $query : $this->model->newNodeRelationBuilder($this);
 
         // TODO: process with OR condition later.
         return $query
@@ -94,26 +97,26 @@ abstract class NodeRelation
             ->whereOriginalNumber($this->model->getOriginalNumberValue());
     }
 
-    /**
-     * Return result query.
-     *
-     * @return null|Model|Collection
-     * @throws Exception
-     */
-    public function execute(): null|Model|Collection
-    {
-        // Only catch error from getQuery().
-        try {
-            $builder = $this->getQuery($this->model->newQueryWithoutScopes());
-        } catch (ElonestException $e) {
-            return null;
-        }
-
-        if ($this->hasMany()) {
-            return $builder->get();
-        }
-        return $builder->first();
-    }
+//    /**
+//     * Return result query.
+//     *
+//     * @return null|Model|Collection
+//     * @throws Exception
+//     */
+//    public function execute(): null|Model|Collection
+//    {
+//        // Only catch error from getQuery().
+//        try {
+//            $builder = $this->getQuery();
+//        } catch (ElonestException $e) {
+//            return null;
+//        }
+//
+//        if ($this->hasMany()) {
+//            return $builder->get();
+//        }
+//        return $builder->first();
+//    }
 
     /**
      * Arrange relation nodes into main nodes following depths.

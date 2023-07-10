@@ -115,20 +115,24 @@ class ElonestBuilder extends Builder
 
                 // Check relation is existed in model.
                 if (!method_exists($this->model::class, $key)) {
-                    throw new Exception("$key relation is not existed");
+                    throw new ElonestException("$key relation is not existed");
                 }
 
                 // Check relation is NodeRelation instance.
-                if (!$this->model->$key() instanceof NodeRelation) {
-                    throw new Exception("$key is not a " . NodeRelation::class . " instance");
-                }
+                //if (!$this->model->$key() instanceof NodeRelationBuilder) {
+                //    throw new Exception("$key is not a " . NodeRelationBuilder::class . " instance");
+                //}
 
                 $relationNodes = $this->getRelatedNodes($mainNodes, $key, $params);
 
-                /* @var NodeRelation $nodeRelationSample */
-                $nodeRelationSample = $this->model->$key();
+                /* @var NodeRelationBuilder $relationBuilderSample */
+                $relationBuilderSample = $this->model->$key();
+                $nodeRelationInstance = $relationBuilderSample->getNodeRelationInstance();
+                if (! $nodeRelationInstance) {
+                    throw new ElonestException("$key doesn't have a " . NodeRelation::class . " instance");
+                }
 
-                $mainNodes = $nodeRelationSample->mapRelationsToMains($mainNodes, $relationNodes, $key);
+                $mainNodes = $nodeRelationInstance->mapRelationsToMains($mainNodes, $relationNodes, $key);
             }
         }
 
@@ -149,19 +153,19 @@ class ElonestBuilder extends Builder
         $relatedQuery = $this->model->newQueryWithoutScopes();
 
         $isNull = false;
-        $relatedQuery->where(function ($query) use ($mainNodes, $relation, &$isNull, $params) {
+        $relatedQuery->where(function (ElonestBuilder $query) use ($mainNodes, $relation, &$isNull, $params) {
             /* @var NestableModel $mainNode */
             foreach ($mainNodes as $mainNode) {
                 try {
-                    /* @var NodeRelation $nodeRelation */
+                    /* @var NodeRelationBuilder $nodeRelationBuilder */
                     if ($params) {
-                        $nodeRelation = $mainNode->$relation(...$params);
+                        $nodeRelationBuilder = $mainNode->$relation(...$params);
                     } else {
-                        $nodeRelation = $mainNode->$relation();
+                        $nodeRelationBuilder = $mainNode->$relation();
                     }
 
-                    $query->orWhere(function ($query) use ($nodeRelation) {
-                        $nodeRelation->getQuery($query);
+                    $query->orWhere(function (ElonestBuilder $query) use ($nodeRelationBuilder) {
+                        $query->addNestedWhereQuery($nodeRelationBuilder->getQuery());
                     });
                     $isNull = true;
                 } catch (ElonestException $e) {

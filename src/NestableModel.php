@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Minh164\EloNest\Collections\ElonestCollection;
+use Minh164\EloNest\Exceptions\ElonestException;
 use Minh164\EloNest\Listeners\HandleNodeCreating;
 use Minh164\EloNest\Listeners\HandleNodeDeleting;
 use Minh164\EloNest\Relations\NestedChildrenRelation;
@@ -20,7 +21,7 @@ use Exception;
 /**
  * Layer manipulate nested set model.
  *
- * @property-read NestableModel[]|ElonestCollection $nodeChildren
+ * @property-read NestableModel[]|ElonestCollection $children
  * @property-read NestableModel $prevSibling Previous sibling
  * @property-read NestableModel $nextSibling Next sibling
  */
@@ -79,6 +80,20 @@ abstract class NestableModel extends Model
     }
 
     /**
+     * Create a new Node Relation query builder for the model.
+     *
+     * @param NodeRelation|null $nodeRelation
+     * @return NodeRelationBuilder
+     */
+    public function newNodeRelationBuilder(?NodeRelation $nodeRelation = null): NodeRelationBuilder
+    {
+        $builder = new NodeRelationBuilder($this->newBaseQueryBuilder(), $nodeRelation);
+        $builder->setModel($this);
+
+        return $builder;
+    }
+
+    /**
      * Root model object to use for repair model set if it misses root model.
      * Just provide a new Model without save to database.
      *
@@ -97,16 +112,19 @@ abstract class NestableModel extends Model
     public function __get($key)
     {
         // Check to return node relation.
-        if (method_exists(static::class, $key) && $this->$key() instanceof NodeRelation) {
+        if (method_exists(static::class, $key) && $this->$key() instanceof NodeRelationBuilder) {
             // If node relation has been loaded, it will be returned instead of re-query to get again.
             if ($this->nodeRelationLoaded($key)) {
                 return $this->nodeRelations[$key];
             }
 
-            /* @var NodeRelation $query */
+            /* @var NodeRelationBuilder $query */
             $query = $this->$key();
+            if (! $nodeRelation = $query->getNodeRelationInstance()) {
+                return null;
+            }
 
-            return $query->execute();
+            return $nodeRelation->hasMany() ? $query->get() : $query->first();
         }
 
         return parent::__get($key);
@@ -212,39 +230,44 @@ abstract class NestableModel extends Model
     /**
      * Get all children query.
      *
-     * @param int|null $depth
-     * @return NestedChildrenRelation
+     * @param int|null $depth Null will get children from all depths
+     * @return NodeRelationBuilder
+     * @throws ElonestException
+     * @throws Exception
      */
-    public function children(?int $depth = null): NestedChildrenRelation
+    public function children(?int $depth = null): NodeRelationBuilder
     {
-        return new NestedChildrenRelation($this, $depth);
+        return (new NestedChildrenRelation($this, $depth))->getQuery();
     }
 
     /**
      * Get parents query.
-     * @return ParentsRelation
+     *
+     * @return NodeRelationBuilder
      */
-    public function parents(): ParentsRelation
+    public function parents(): NodeRelationBuilder
     {
-        return new ParentsRelation($this);
+        return (new ParentsRelation($this))->getQuery();
     }
 
     /**
      * Get previous sibling query.
-     * @return PreviousSiblingRelation
+     *
+     * @return NodeRelationBuilder
      */
-    public function prevSibling(): PreviousSiblingRelation
+    public function prevSibling(): NodeRelationBuilder
     {
-        return new PreviousSiblingRelation($this);
+        return (new PreviousSiblingRelation($this))->getQuery();
     }
 
     /**
      * Get next sibling query.
-     * @return NextSiblingRelation
+     *
+     * @return NodeRelationBuilder
      */
-    public function nextSibling(): NextSiblingRelation
+    public function nextSibling(): NodeRelationBuilder
     {
-        return new NextSiblingRelation($this);
+        return (new NextSiblingRelation($this))->getQuery();
     }
 
     /**
