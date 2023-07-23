@@ -93,7 +93,7 @@ class NestedChildrenRelation extends NodeRelation
     public function nestChildrenForParent(NestableModel $highestParent, ElonestCollection $children, string $relationKey): NestableModel
     {
         $cloneHighestParent = clone $highestParent;
-        $highestParent->setNodeRelations([$relationKey => []]);
+        $highestParent->setNodeRelations([$relationKey => null]);
         // Tracking for navigating to current nested parent.
         $nestedIndex = [0];
         $children = $children->values();
