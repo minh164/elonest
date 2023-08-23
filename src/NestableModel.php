@@ -310,37 +310,61 @@ abstract class NestableModel extends Model
     }
 
     /**
-     * Determines another node is sibling of this.
+     * Determines this is the sibling of target node.
      *
-     * @param NestableModel $anotherNode Node which be need to compare
+     * @param NestableModel $targetNode Node which be need to compare
      *
      * @return bool
      */
-    public function isSiblingOf(NestableModel $anotherNode): bool
+    public function isSiblingOf(NestableModel $targetNode): bool
     {
-        return $this->getParentId() == $anotherNode->getParentId();
+        return $this->getParentId() == $targetNode->getParentId();
     }
 
     /**
-     * Determines this is the closest parent of another node.
+     * Determines this is the child of target node.
      *
-     * @param NestableModel $anotherNode
+     * @param NestableModel $targetNode
+     *
      * @return bool
      */
-    public function isClosestParentOf(NestableModel $anotherNode): bool
+    public function isChildOf(NestableModel $targetNode): bool
     {
-        return $this->getPrimaryId() == $anotherNode->getParentId();
+        return $this->getLeftValue() > $targetNode->getLeftValue() && $this->getRightValue() < $targetNode->getRightValue();
     }
 
     /**
-     * Determines this is the closest child of another node.
+     * Determines this is the parent of target node.
      *
-     * @param NestableModel $anotherNode
+     * @param NestableModel $targetNode
+     *
      * @return bool
      */
-    public function isClosestChildOf(NestableModel $anotherNode): bool
+    public function isParentOf(NestableModel $targetNode): bool
     {
-        return $this->getParentId() == $anotherNode->getPrimaryId();
+        return $this->getLeftValue() < $targetNode->getLeftValue() && $this->getRightValue() > $targetNode->getRightValue();
+    }
+
+    /**
+     * Determines this is the closest parent of target node.
+     *
+     * @param NestableModel $targetNode
+     * @return bool
+     */
+    public function isClosestParentOf(NestableModel $targetNode): bool
+    {
+        return $this->getPrimaryId() == $targetNode->getParentId();
+    }
+
+    /**
+     * Determines this is the closest child of target node.
+     *
+     * @param NestableModel $targetNode
+     * @return bool
+     */
+    public function isClosestChildOf(NestableModel $targetNode): bool
+    {
+        return $this->getParentId() == $targetNode->getPrimaryId();
     }
 
     /**
