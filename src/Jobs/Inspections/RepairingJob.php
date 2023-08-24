@@ -28,6 +28,7 @@ class RepairingJob extends Job implements ShouldQueue
 
     /**
      * Create a new job instance.
+     * @throws ElonestException
      */
     public function __construct(string $nestableModelClass, int $originalNumber)
     {
@@ -55,7 +56,7 @@ class RepairingJob extends Job implements ShouldQueue
                 $this->nestMissingToRoot($root, $missingList);
             }
 
-            $base->repairForString($this->sampleModel, $this->nestedString);
+            $base->repairForString($this->sampleModel, $this->nestedString, $this->originalNumber);
 
             // Make new inspection.
             $inspector = new ElonestInspector($this->modelName, $this->originalNumber);

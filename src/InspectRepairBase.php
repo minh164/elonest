@@ -124,18 +124,19 @@ class InspectRepairBase
      * @return void
      * @throws ElonestException
      */
-    public function repairForString(NestableModel $sampleModel, NestedString $nestedString): void
+    public function repairForString(NestableModel $sampleModel, NestedString $nestedString, int $originalNumber): void
     {
-        $this->updateLeftRight($nestedString, $sampleModel);
+        $this->updateLeftRight($nestedString, $sampleModel, $originalNumber);
     }
 
     /**
      * @param NestedString $nestedString
      * @param NestableModel $sampleModel
+     * @param int $originalNumber
      * @return void
      * @throws ElonestException
      */
-    protected function updateLeftRight(NestedString $nestedString, NestableModel $sampleModel): void
+    protected function updateLeftRight(NestedString $nestedString, NestableModel $sampleModel, int $originalNumber): void
     {
         if (!$root = $nestedString->findRoot()) {
             throw new ElonestException("Cannot find root node in set");
@@ -159,6 +160,7 @@ class InspectRepairBase
             {$sampleModel->getLeftKey()} = CASE {$sampleModel->getPrimaryName()} {$leftQueries} END,
             {$sampleModel->getRightKey()} = CASE {$sampleModel->getPrimaryName()} {$rightQueries} END,
             {$sampleModel->getDepthKey()} = CASE {$sampleModel->getPrimaryName()} {$depthQueries} END
+            WHERE {$sampleModel->getOriginalNumberKey()} = {$originalNumber}
         ";
 
         // Execute single query to update all nodes.
