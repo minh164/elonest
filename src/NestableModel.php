@@ -4,6 +4,7 @@ namespace Minh164\EloNest;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Minh164\EloNest\Collections\ElonestCollection;
@@ -137,6 +138,25 @@ abstract class NestableModel extends Model
     {
         static::creating(HandleNodeCreating::class);
         static::deleting(HandleNodeDeleting::class);
+    }
+
+    /**
+     * Override parent "save" method, set transaction for "save" to rollback if model event has been fired fail.
+     *
+     * @inheritDoc
+     */
+    public function save(array $options = [])
+    {
+        try {
+            DB::beginTransaction();
+            $result = parent::save($options);
+            DB::commit();
+
+            return $result;
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new ElonestException($e->getMessage());
+        }
     }
 
     /**
